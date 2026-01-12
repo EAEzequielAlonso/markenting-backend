@@ -33,7 +33,9 @@ export class UsersService {
             await this.subscriptionsService.createTrial(company.id);
         } catch (error) {
             console.error('Error in user creation:', error);
-            throw new InternalServerErrorException('Error creating company and trial subscription');
+            // Re-throw the original error if it's already an HTTP exception (unlikely here but good practice)
+            // or throw a new one with the detail.
+            throw new InternalServerErrorException(`Error creating company and trial subscription: ${error.message || error}`);
         }
 
         // 2. Hash Password
