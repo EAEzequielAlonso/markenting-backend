@@ -40,8 +40,8 @@ import { SchedulerModule } from './scheduler/scheduler.module';
       type: 'postgres',
       url: process.env.DATABASE_URL,
       entities: [Company, User, Subscription, Lead, AdCampaign, AdSuggestion, OrganicCampaign, OrganicPost, AiActivity, AdDailyMetric],
-      synchronize: false, // ¡Solo en desarrollo! Crea tablas automáticamente
-      dropSchema: false,
+      synchronize: true, // TODO: Poner en false en producción real y usar migraciones
+      dropSchema: true,
       logging: false,
     }),
     UsersModule,
