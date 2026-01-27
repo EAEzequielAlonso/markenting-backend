@@ -6,13 +6,18 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
-import { User } from '../entities/user.entity';
-import { Church } from '../entities/church.entity';
-import { ChurchMember } from '../entities/church-member.entity';
+import { GoogleStrategy } from './strategies/google.strategy';
+import { Auth0Strategy } from './strategies/auth0.strategy';
+import { User } from '../users/entities/user.entity';
+import { Church } from '../churches/entities/church.entity';
+import { ChurchMember } from '../members/entities/church-member.entity';
+import { UsersModule } from '../users/users.module';
+import { Person } from 'src/users/entities/person.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Church, ChurchMember]),
+    UsersModule,
+    TypeOrmModule.forFeature([User, Church, ChurchMember, Person]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -21,10 +26,10 @@ import { ChurchMember } from '../entities/church-member.entity';
         signOptions: { expiresIn: '7d' }, // Token valid for 7 days
       }),
       inject: [ConfigService],
-    }),
+    }), 
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, Auth0Strategy],
   exports: [AuthService],
 })
 export class AuthModule { }

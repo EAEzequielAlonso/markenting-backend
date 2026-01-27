@@ -1,0 +1,160 @@
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
+import { PrayerRequest } from './entities/prayer-request.entity';
+import { PrayerUpdate } from './entities/prayer-update.entity';
+import { ChurchMember } from '../members/entities/church-member.entity';
+import { PrayerRequestStatus, PrayerRequestVisibility } from '../common/enums';
+import { AppPermission as PermEnum } from '../auth/authorization/permissions.enum';
+import { getPermissionsForRoles } from '../auth/authorization/role-permissions.config';
+
+
+@Injectable()
+export class PrayersService {
+    constructor(
+        @InjectRepository(PrayerRequest) private requestRepo: Repository<PrayerRequest>,
+        @InjectRepository(PrayerUpdate) private updateRepo: Repository<PrayerUpdate>,
+        @InjectRepository(ChurchMember) private memberRepo: Repository<ChurchMember>,
+    ) { }
+
+    async create(churchId: string, memberId: string, motive: string, visibility: PrayerRequestVisibility, isAnonymous: boolean = false) {
+        const member = await this.memberRepo.findOne({ where: { id: memberId } });
+        if (!member) throw new NotFoundException('Member not found');
+
+        const request = this.requestRepo.create({
+            church: { id: churchId },
+            member,
+            motive,
+            visibility,
+            isAnonymous,
+            status: PrayerRequestStatus.WAITING
+        });
+
+        return this.requestRepo.save(request);
+    }
+
+    async findAll(churchId: string, viewerMemberId: string, viewerRoles: string[], page: number = 1, limit: number = 10, statusFilter?: string) {
+        const permissions = getPermissionsForRoles(viewerRoles);
+        const canViewAll = permissions.includes(PermEnum.PRAYER_VIEW_ALL); // Equivalent to "Can Moderate" basically
+
+        // Query Logic
+        const query = this.requestRepo.createQueryBuilder('pr')
+            .leftJoinAndSelect('pr.member', 'm')
+            .leftJoinAndSelect('m.person', 'p')
+            .leftJoinAndSelect('pr.updates', 'pu')
+            .where('pr.church.id = :churchId', { churchId })
+            .orderBy('pr.createdAt', 'DESC')
+            .skip((page - 1) * limit)
+            .take(limit);
+
+        // --- Status Filtering Logic ---
+        if (statusFilter === 'ACTIVE') {
+            query.andWhere('pr.status IN (:...activeStatuses)', { activeStatuses: [PrayerRequestStatus.WAITING, PrayerRequestStatus.HIDDEN] });
+        } else if (statusFilter === 'ANSWERED') {
+            query.andWhere('pr.status = :answeredStatus', { answeredStatus: PrayerRequestStatus.ANSWERED });
+        }
+
+        if (canViewAll) {
+            // Pastors/Admins see EVERYTHING except DELETED (unless we want to show deleted too, but requirements say "Visible for Pastor/Admin")
+            // Requirement 2: OCULTO Visible solo para autor y roles pastor/admin.
+            // Requirement 2: ELIMINADO Definitiva.
+            // If soft delete is implemented via status DELETED, we might show it or not.
+            // Let's hide DELETED by default for simplicity unless specifically asked, but Oculto (HIDDEN) is visible.
+            query.andWhere('pr.status != :deletedStatus', { deletedStatus: PrayerRequestStatus.DELETED });
+        } else {
+            // Regular Members:
+            // 1. Own Requests (Any status except maybe DELETED? Requirement says "Visible only for author..." for HIDDEN)
+            // 2. PUBLIC Requests that are WAITING or ANSWERED.
+            // 3. LEADERS_ONLY Requests (if viewer is leader? Logic handled below)
+
+            // Complex AND/OR logic
+            // ( (Me = Author) OR (Status IN [WAITING, ANSWERED] AND Visibility = PUBLIC) )
+
+            // Note on "LEADERS_ONLY": The permission check handles if I am a leader. 
+            // If I am a leader but NOT admin/moderator, I can see LEADERS_ONLY.
+            // But strict requirement says "Muro de Oración permite compartir...".
+            // Let's stick to simple logic:
+
+            // Author always sees their own (non-deleted).
+            // Public sees PUBLIC + WAITING/ANSWERED.
+
+            // For now, let's implement the basic "Author OR Public Safe" logic.
+            query.andWhere(
+                '(pr.member.id = :viewerId OR (pr.status IN (:...visibleStatuses) AND pr.visibility = :publicVisibility))',
+                {
+                    viewerId: viewerMemberId,
+                    visibleStatuses: [PrayerRequestStatus.WAITING, PrayerRequestStatus.ANSWERED],
+                    publicVisibility: PrayerRequestVisibility.PUBLIC
+                }
+            );
+
+            // Hide DELETED for author too? Usually yes.
+            query.andWhere('pr.status != :deletedStatus', { deletedStatus: PrayerRequestStatus.DELETED });
+        }
+
+        const [items, total] = await query.getManyAndCount();
+
+        return {
+            data: items,
+            meta: {
+                total,
+                page,
+                lastPage: Math.ceil(total / limit),
+                limit
+            }
+        };
+    }
+
+    async markAnswered(requestId: string, memberId: string, testimony?: string) {
+        const request = await this.requestRepo.findOne({ where: { id: requestId }, relations: ['member'] });
+        if (!request) throw new NotFoundException('Petición no encontrada');
+
+        if (request.member.id !== memberId) {
+            throw new ForbiddenException('Solo el autor puede marcarla como respondida');
+        }
+
+        request.status = PrayerRequestStatus.ANSWERED;
+        if (testimony) request.testimony = testimony;
+
+        return this.requestRepo.save(request);
+    }
+
+    async update(requestId: string, memberId: string, motive: string) {
+        const request = await this.requestRepo.findOne({ where: { id: requestId }, relations: ['member'] });
+        if (!request) throw new NotFoundException('Petición no encontrada');
+
+        if (request.member.id !== memberId) {
+            throw new ForbiddenException('Solo el autor puede editarla');
+        }
+
+        request.motive = motive;
+        return this.requestRepo.save(request);
+    }
+
+    async addUpdate(requestId: string, memberId: string, content: string) {
+        const request = await this.requestRepo.findOne({ where: { id: requestId }, relations: ['member'] });
+        if (!request) throw new NotFoundException('Petición no encontrada');
+
+        if (request.member.id !== memberId) {
+            throw new ForbiddenException('Solo el autor puede agregar actualizaciones');
+        }
+
+        const update = this.updateRepo.create({
+            request,
+            content
+        });
+
+        return this.updateRepo.save(update);
+    }
+
+    // --- MODERATION ---
+
+    async setStatus(requestId: string, status: PrayerRequestStatus) {
+        // Validation handled in Controller (Admin/Pastor only)
+        const request = await this.requestRepo.findOne({ where: { id: requestId } });
+        if (!request) throw new NotFoundException('Petición no encontrada');
+
+        request.status = status;
+        return this.requestRepo.save(request);
+    }
+}

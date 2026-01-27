@@ -4,8 +4,9 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from './interfaces';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '../entities/user.entity';
+import { User } from '../users/entities/user.entity';
 import { Repository } from 'typeorm';
+import { getPermissionsForRoles } from './authorization/role-permissions.config';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -22,13 +23,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: JwtPayload) {
-        // We could just return payload, but sometimes we want to check if user still exists
-        // The payload contains churchId context
+        // Validation: Ensure user exists in DB to prevent stale token issues (e.g. after DB wipe)
+        const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+        if (!user) {
+            throw new UnauthorizedException('User no longer exists');
+        }
+
         return {
             userId: payload.sub,
+            personId: payload.personId,
             email: payload.email,
             churchId: payload.churchId,
-            roles: payload.roles
+            memberId: payload.memberId,
+            roles: payload.roles,
+            permissions: getPermissionsForRoles(payload.roles),
+            systemRole: user.systemRole
         };
     }
 }

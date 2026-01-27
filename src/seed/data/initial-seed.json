@@ -1,0 +1,401 @@
+{
+    "churches": [
+        {
+            "name": "Iglesia Phyessoft",
+            "slug": "iglesia-phyessoft",
+            "adminEmail": "phyessoft@gmail.com",
+            "adminName": "Admin Phyessoft",
+            "members": [
+                {
+                    "email": "pastor1@phyessoft.com",
+                    "name": "Ricardo Mendez",
+                    "ecclesiasticalRole": "PASTOR",
+                    "status": "MEMBER",
+                    "isCounselor": true
+                },
+                {
+                    "email": "elder1@phyessoft.com",
+                    "name": "Carlos Rodriguez",
+                    "ecclesiasticalRole": "ELDER",
+                    "status": "MEMBER",
+                    "isCounselor": true
+                },
+                {
+                    "email": "deacon1@phyessoft.com",
+                    "name": "Marta Gomez",
+                    "ecclesiasticalRole": "DEACON",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "leader1@phyessoft.com",
+                    "name": "Sofia Lopez",
+                    "ecclesiasticalRole": "LEADER",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "leader2@phyessoft.com",
+                    "name": "Diego Torres",
+                    "ecclesiasticalRole": "LEADER",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "member1@phyessoft.com",
+                    "name": "Juan Perez",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "member2@phyessoft.com",
+                    "name": "Maria Garcia",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "member3@phyessoft.com",
+                    "name": "Pedro Sanchez",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "member4@phyessoft.com",
+                    "name": "Lucia Fernandez",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "member5@phyessoft.com",
+                    "name": "Gabriel Ruiz",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "member6@phyessoft.com",
+                    "name": "Elena Martinez",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "member7@phyessoft.com",
+                    "name": "Roberto Diaz",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "member8@phyessoft.com",
+                    "name": "Andrea Castro",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "MEMBER"
+                },
+                {
+                    "email": "prospect1@phyessoft.com",
+                    "name": "Fernando Soto",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "PROSPECT"
+                },
+                {
+                    "email": "visitor1@phyessoft.com",
+                    "name": "Laura Vera",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "PROSPECT"
+                },
+                {
+                    "email": "visitor2@phyessoft.com",
+                    "name": "Mateo Blanco",
+                    "ecclesiasticalRole": "NONE",
+                    "status": "PROSPECT"
+                }
+            ],
+            "smallGroups": [
+                {
+                    "name": "Célula Centro",
+                    "description": "Grupo enfocado en jóvenes profesionales y familias jóvenes residentes en el centro.",
+                    "objective": "Crecimiento espiritual y apoyo mutuo en la carrera y familia.",
+                    "studyMaterial": "Libro de Romanos",
+                    "currentTopic": "Fe y Justicia",
+                    "meetingDay": "Miércoles",
+                    "meetingTime": "20:00",
+                    "address": "Av. Corrientes 1234, 5to A",
+                    "leaderEmail": "leader1@phyessoft.com",
+                    "membersEmails": [
+                        "member1@phyessoft.com",
+                        "member2@phyessoft.com",
+                        "member3@phyessoft.com"
+                    ]
+                },
+                {
+                    "name": "Célula Norte",
+                    "description": "Grupo de estudio bíblico profundo para todas las edades.",
+                    "objective": "Profundizar en la teología y doctrina bíblica.",
+                    "studyMaterial": "Doctrina Básica",
+                    "currentTopic": "La Trinidad",
+                    "meetingDay": "Jueves",
+                    "meetingTime": "19:30",
+                    "address": "Calle 14 nro 582, City Bell",
+                    "leaderEmail": "leader2@phyessoft.com",
+                    "membersEmails": [
+                        "member4@phyessoft.com",
+                        "member5@phyessoft.com",
+                        "member6@phyessoft.com"
+                    ]
+                }
+            ],
+            "families": [
+                {
+                    "name": "Familia Perez-Garcia",
+                    "headEmail": "member1@phyessoft.com",
+                    "membersEmails": [
+                        "member2@phyessoft.com"
+                    ]
+                }
+            ],
+            "counselingProcesses": [
+                {
+                    "counselorEmail": "pastor1@phyessoft.com",
+                    "counseleeEmail": "member1@phyessoft.com",
+                    "type": "FORMAL",
+                    "status": "ACTIVE",
+                    "motive": "Crisis matrimonial y financiera.",
+                    "notes": [
+                        "Primera entrevista realizada.",
+                        "Se detectan problemas de comunicación."
+                    ]
+                },
+                {
+                    "counselorEmail": "elder1@phyessoft.com",
+                    "counseleeEmail": "member4@phyessoft.com",
+                    "type": "INFORMAL",
+                    "status": "CLOSED",
+                    "motive": "Orientación vocacional para jóvenes.",
+                    "notes": [
+                        "Sesión única de consejo."
+                    ]
+                }
+            ],
+            "treasury": {
+                "accounts": [
+                    {
+                        "name": "Caja Central ARS",
+                        "type": "asset",
+                        "currency": "ARS",
+                        "balance": 1500000.00
+                    },
+                    {
+                        "name": "Banco Galicia USD",
+                        "type": "asset",
+                        "currency": "USD",
+                        "balance": 2500.00
+                    },
+                    {
+                        "name": "Fondo Pro Edificio",
+                        "type": "asset",
+                        "currency": "ARS",
+                        "balance": 500000.00
+                    },
+                    {
+                        "name": "Diezmos",
+                        "type": "income",
+                        "currency": "ARS",
+                        "balance": 0
+                    },
+                    {
+                        "name": "Ofrendas",
+                        "type": "income",
+                        "currency": "ARS",
+                        "balance": 0
+                    },
+                    {
+                        "name": "Servicios (Luz/Agua)",
+                        "type": "expense",
+                        "currency": "ARS",
+                        "balance": 0
+                    },
+                    {
+                        "name": "Mantenimiento",
+                        "type": "expense",
+                        "currency": "ARS",
+                        "balance": 0
+                    },
+                    {
+                        "name": "Ayuda Social",
+                        "type": "expense",
+                        "currency": "ARS",
+                        "balance": 0
+                    }
+                ],
+                "transactions": [
+                    {
+                        "description": "Diezmos Mes de Enero",
+                        "amount": 250000,
+                        "currency": "ARS",
+                        "type": "INCOME",
+                        "source": "Diezmos",
+                        "dest": "Caja Central ARS"
+                    },
+                    {
+                        "description": "Ofrenda Especial Navidad",
+                        "amount": 100,
+                        "currency": "USD",
+                        "type": "INCOME",
+                        "source": "Ofrendas",
+                        "dest": "Banco Galicia USD"
+                    },
+                    {
+                        "description": "Pago Factura Luz",
+                        "amount": 45000,
+                        "currency": "ARS",
+                        "type": "EXPENSE",
+                        "source": "Caja Central ARS",
+                        "dest": "Servicios (Luz/Agua)"
+                    },
+                    {
+                        "description": "Compra de Biblias para escuela dominical",
+                        "amount": 150,
+                        "currency": "USD",
+                        "type": "EXPENSE",
+                        "source": "Banco Galicia USD",
+                        "dest": "Ayuda Social",
+                        "rate": 1450
+                    }
+                ]
+            },
+            "library": {
+                "books": [
+                    {
+                        "title": "Más que un Carpintero",
+                        "author": "Josh McDowell",
+                        "category": "Apologética",
+                        "description": "Argumentos históricos sobre Jesús.",
+                        "isbn": "9780842314668",
+                        "coverUrl": "https://www.libreriamaranatha.com/wp-content/uploads/2014/04/9780789923462.jpg"
+                    },
+                    {
+                        "title": "El Progreso del Peregrino",
+                        "author": "John Bunyan",
+                        "category": "Ficción Cristiana",
+                        "description": "Clásica alegoría de la vida cristiana.",
+                        "isbn": "9780802447993",
+                        "coverUrl": "https://libreriapeniel.com/wp-content/uploads/2021/01/peregrino.jpg"
+                    },
+                    {
+                        "title": "Una Vida con Propósito",
+                        "author": "Rick Warren",
+                        "category": "Crecimiento",
+                        "description": "¿Para qué estoy aquí en la tierra?",
+                        "isbn": "9780310205715",
+                        "coverUrl": "https://images.cdn2.buscalibre.com/fit-in/360x360/c7/c3/f8a142b5345889e3ac07e01a97a89c54.jpg"
+                    },
+                    {
+                        "title": "Cristianismo y Liberalismo",
+                        "author": "J. Gresham Machen",
+                        "category": "Teología",
+                        "description": "Defensa de la fe ortodoxa.",
+                        "isbn": "9780802811213",
+                        "coverUrl": "https://m.media-amazon.com/images/I/61amYsfEAPL._SY425_.jpg"
+                    },
+                    {
+                        "title": "El Caso de Cristo",
+                        "author": "Lee Strobel",
+                        "category": "Apologética",
+                        "description": "Investigación periodística.",
+                        "isbn": "9780310226468",
+                        "coverUrl": "https://images.cdn3.buscalibre.com/fit-in/360x360/49/b1/49b1ff18b844fa73c5448d7966585b31.jpg"
+                    },
+                    {
+                        "title": "Mujer de la Palabra",
+                        "author": "Jen Wilkin",
+                        "category": "Mujeres",
+                        "description": "Cómo estudiar la Biblia con mente y corazón.",
+                        "isbn": "9781430032483",
+                        "coverUrl": "https://libreriapeniel.com/wp-content/uploads/2021/01/mujer-de-la-palabra-700x788.jpg"
+                    },
+                    {
+                        "title": "La Santidad de Dios",
+                        "author": "R.C. Sproul",
+                        "category": "Teología",
+                        "description": "Explorando el carácter de Dios.",
+                        "isbn": "9780842339654",
+                        "coverUrl": "https://poiema.co/cdn/shop/products/LaSantidaddeDiosRCSproul.jpg?v=1655389986&width=1100"
+                    },
+                    {
+                        "title": "Deseando a Dios",
+                        "author": "John Piper",
+                        "category": "Teología",
+                        "description": "Meditaciones de un hedonista cristiano.",
+                        "isbn": "9781590521199",
+                        "coverUrl": "https://i.pinimg.com/736x/70/8b/e7/708be7281ac9e3c081d33bd2ac6e4fcc.jpg"
+                    },
+                    {
+                        "title": "Los Atributos de Dios",
+                        "author": "A.W. Pink",
+                        "category": "Teología",
+                        "description": "Estudio profundo de quién es Dios.",
+                        "isbn": "9780801067729",
+                        "coverUrl": "https://banneroftruth.org/us/wp-content/uploads/sites/2/2013/01/AtributosDeDios_FINAL-599x1024.jpg"
+                    },
+                    {
+                        "title": "Cuestionando el Cristianismo",
+                        "author": "Timothy Keller",
+                        "category": "Apologética",
+                        "description": "Respuestas a dudas comunes.",
+                        "isbn": "9781594483493",
+                        "coverUrl": "https://biblias.com.co/wp-content/uploads/2024/04/9781433644979.jpg"
+                    },
+                    {
+                        "title": "Matrimonio Sagrado",
+                        "author": "Gary Thomas",
+                        "category": "Familia",
+                        "description": "¿Y si Dios diseñó el matrimonio para hacernos santos más que felices?",
+                        "isbn": "9780310242826",
+                        "coverUrl": "https://m.media-amazon.com/images/I/41N1LY+uuVL._SY425_.jpg"
+                    },
+                    {
+                        "title": "Límites",
+                        "author": "Henry Cloud",
+                        "category": "Autoayuda",
+                        "description": "Cuándo decir sí, cuándo decir no.",
+                        "isbn": "9780310585909",
+                        "coverUrl": "https://libreriapeniel.com/wp-content/uploads/2021/01/limites-1-700x788.jpg"
+                    },
+                    {
+                        "title": "El Costo del Discipulado",
+                        "author": "Dietrich Bonhoeffer",
+                        "category": "Teología",
+                        "description": "Significado de seguir a Jesús.",
+                        "isbn": "9780684815008",
+                        "coverUrl": "https://libreriapeniel.com/wp-content/uploads/2021/02/el-costo-del-discipulado-700x788.jpg"
+                    },
+                    {
+                        "title": "El Cielo",
+                        "author": "Randy Alcorn",
+                        "category": "Escatología",
+                        "description": "Una visión bíblica del más allá.",
+                        "isbn": "9780842379421",
+                        "coverUrl": "https://images.cdn2.buscalibre.com/fit-in/360x360/0e/72/0e723e30145f079cc3eea0d9c251523b.jpg"
+                    },
+                    {
+                        "title": "La Cruz de Cristo",
+                        "author": "John Stott",
+                        "category": "Teología",
+                        "description": "El centro de la fe cristiana.",
+                        "isbn": "9780830833207",
+                        "coverUrl": "https://images.cdn2.buscalibre.com/fit-in/360x360/83/b3/83b372af6655932601aa548712125fe9.jpg"
+                    }
+                ],
+                "loans": [
+                    {
+                        "bookTitle": "La Santidad de Dios",
+                        "memberEmail": "phyessoft@gmail.com"
+                    },
+                    {
+                        "bookTitle": "El Caso de Cristo",
+                        "memberEmail": "phyessoft@gmail.com"
+                    },
+                    {
+                        "bookTitle": "Una Vida con Propósito",
+                        "memberEmail": "phyessoft@gmail.com"
+                    }
+                ]
+            }
+        }
+    ]
+}

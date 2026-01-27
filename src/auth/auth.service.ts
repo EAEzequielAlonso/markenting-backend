@@ -1,19 +1,22 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { User } from '../entities/user.entity';
-import { Church } from '../entities/church.entity';
-import { ChurchMember } from '../entities/church-member.entity';
-import { RegisterChurchDto, JoinChurchDto, LoginDto } from './dto';
-import { ChurchRole, MemberStatus, PlanType, SubscriptionStatus } from '../entities/enums';
+import { User } from '../users/entities/user.entity';
+import { Person } from '../users/entities/person.entity';
+import { Church } from '../churches/entities/church.entity';
+import { ChurchMember } from '../members/entities/church-member.entity';
+import { RegisterChurchDto, JoinChurchDto, LoginDto, RegisterUserDto } from './dto/dto';
+import { SocialLoginDto } from './dto/social-login.dto';
+import { MembershipStatus, EcclesiasticalRole, PlanType, SubscriptionStatus, SystemRole } from '../common/enums';
 import { JwtPayload } from './interfaces';
 
 @Injectable()
 export class AuthService {
     constructor(
         @InjectRepository(User) private userRepository: Repository<User>,
+        @InjectRepository(Person) private personRepository: Repository<Person>,
         @InjectRepository(Church) private churchRepository: Repository<Church>,
         @InjectRepository(ChurchMember) private memberRepository: Repository<ChurchMember>,
         private jwtService: JwtService,
@@ -38,33 +41,77 @@ export class AuthService {
         const church = this.churchRepository.create({
             name: dto.churchName,
             slug: dto.churchSlug || this.generateSlug(dto.churchName),
-            plan: PlanType.FREE,
+            plan: PlanType.TRIAL,
             subscriptionStatus: SubscriptionStatus.TRIAL,
             trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
         });
         const savedChurch = await this.churchRepository.save(church);
 
-        // 4. Create User
+        // 4. Create Person
+        const person = this.personRepository.create({
+            email: dto.email,
+            fullName: dto.fullName,
+        });
+        const savedPerson = await this.personRepository.save(person);
+
+        // 5. Create User
         const hashedPassword = await bcrypt.hash(dto.password, 10);
         const user = this.userRepository.create({
             email: dto.email,
             password: hashedPassword,
-            fullName: dto.fullName,
-            isPlatformAdmin: false, // Default
+            isPlatformAdmin: false,
+            systemRole: SystemRole.USER,
+            person: savedPerson
         });
-        const savedUser = await this.userRepository.save(user);
+        await this.userRepository.save(user);
 
-        // 5. Create ChurchMember (Admin)
+        // 6. Create ChurchMember (Admin)
         const member = this.memberRepository.create({
-            user: savedUser,
+            person: savedPerson,
             church: savedChurch,
-            roles: [ChurchRole.ADMIN],
-            status: MemberStatus.ACTIVE,
+            ecclesiasticalRole: EcclesiasticalRole.PASTOR, // Default for creator
+            status: MembershipStatus.MEMBER,
+            isAuthorizedCounselor: true // Admin is counselor by default
         });
         await this.memberRepository.save(member);
 
-        // 6. Generate Token
+        // 7. Generate Token
         return this.login({ email: dto.email, password: dto.password, churchSlug: savedChurch.slug });
+    }
+
+    async registerUser(dto: RegisterUserDto) {
+        // 1. Check if email exists
+        const existingUser = await this.userRepository.findOne({ where: { email: dto.email } });
+        if (existingUser) {
+            throw new BadRequestException('User with this email already exists');
+        }
+
+        let person = await this.personRepository.findOne({ where: { email: dto.email } });
+        if (person && person.user) {
+            throw new BadRequestException('User with this email already exists');
+        }
+
+        if (!person) {
+            person = this.personRepository.create({
+                email: dto.email,
+                fullName: dto.fullName || 'Usuario',
+            });
+            person = await this.personRepository.save(person);
+        }
+
+        // 3. Create User
+        const hashedPassword = await bcrypt.hash(dto.password, 10);
+        const user = this.userRepository.create({
+            email: dto.email,
+            password: hashedPassword,
+            isPlatformAdmin: false,
+            systemRole: SystemRole.USER,
+            person: person
+        });
+        await this.userRepository.save(user);
+
+        // 4. Generate Token (No specific church context yet)
+        return this.login({ email: dto.email, password: dto.password });
     }
 
     async joinChurch(dto: JoinChurchDto) {
@@ -72,22 +119,37 @@ export class AuthService {
         const church = await this.churchRepository.findOne({ where: { slug: dto.churchSlug } });
         if (!church) throw new BadRequestException('Church not found');
 
-        // 2. Find or Create User
-        let user = await this.userRepository.findOne({ where: { email: dto.email } });
+        // 2. Find User or Create Person/User
+        let user = await this.userRepository.findOne({ where: { email: dto.email }, relations: ['person'] });
+        let person: Person;
+
         if (!user) {
             if (!dto.password) throw new BadRequestException('Password required for new user');
+
+            // Create Person
+            person = this.personRepository.create({
+                email: dto.email,
+                fullName: dto.fullName || 'New Member',
+            });
+            person = await this.personRepository.save(person);
+
+            // Create User
             const hashedPassword = await bcrypt.hash(dto.password, 10);
             user = this.userRepository.create({
                 email: dto.email,
                 password: hashedPassword,
-                fullName: dto.fullName || 'New Member',
+                isPlatformAdmin: false,
+                systemRole: SystemRole.USER,
+                person: person
             });
-            user = await this.userRepository.save(user);
+            await this.userRepository.save(user);
+        } else {
+            person = user.person;
         }
 
         // 3. Check existing membership
         const existingMember = await this.memberRepository.findOne({
-            where: { user: { id: user.id }, church: { id: church.id } },
+            where: { person: { id: person.id }, church: { id: church.id } },
         });
 
         if (existingMember) {
@@ -96,10 +158,10 @@ export class AuthService {
 
         // 4. Create Pending Membership
         const member = this.memberRepository.create({
-            user,
+            person: person,
             church,
-            roles: [ChurchRole.MEMBER],
-            status: MemberStatus.PENDING,
+            ecclesiasticalRole: EcclesiasticalRole.NONE,
+            status: MembershipStatus.PROSPECT,
         });
         await this.memberRepository.save(member);
 
@@ -109,7 +171,8 @@ export class AuthService {
     async login(dto: LoginDto) {
         const user = await this.userRepository.findOne({
             where: { email: dto.email },
-            select: ['id', 'email', 'password', 'fullName', 'isPlatformAdmin']
+            select: ['id', 'email', 'password', 'isPlatformAdmin', 'isOnboarded', 'systemRole'],
+            relations: ['person'] // Load Person to get ID
         });
 
         if (!user || !(await bcrypt.compare(dto.password, user.password))) {
@@ -117,51 +180,319 @@ export class AuthService {
         }
 
         let churchId = null;
-        let roles = [];
+        let authRoles: string[] = []; // Strings for JWT
+        let membership: ChurchMember | null = null;
 
         // If churchSlug provided, validate membership
         if (dto.churchSlug) {
             const church = await this.churchRepository.findOne({ where: { slug: dto.churchSlug } });
             if (!church) throw new BadRequestException('Church not found');
 
-            const membership = await this.memberRepository.findOne({
-                where: { user: { id: user.id }, church: { id: church.id }, status: MemberStatus.ACTIVE },
+            membership = await this.memberRepository.findOne({
+                where: { person: { id: user.person.id }, church: { id: church.id } }
             });
 
+            // Allow if status is MEMBER, or maybe PROSPECT can login but with limited access?
+            // For now, let's allow login but role check will limit access.
             if (!membership) {
                 throw new UnauthorizedException('Not a member of this church or pending approval');
             }
 
             churchId = church.id;
-            roles = membership.roles;
+            // Push the single role to array
+            if (membership.ecclesiasticalRole !== EcclesiasticalRole.NONE) {
+                authRoles.push(membership.ecclesiasticalRole);
+            }
         } else {
             // Try to find a default church (first active membership)
-            const membership = await this.memberRepository.findOne({
-                where: { user: { id: user.id }, status: MemberStatus.ACTIVE },
+            membership = await this.memberRepository.findOne({
+                where: { person: { id: user.person.id } },
                 relations: ['church'],
                 order: { joinedAt: 'DESC' }
             });
             if (membership) {
                 churchId = membership.church.id;
-                roles = membership.roles;
+                if (membership.ecclesiasticalRole !== EcclesiasticalRole.NONE) {
+                    authRoles.push(membership.ecclesiasticalRole);
+                }
             }
         }
+
+        // Add System Role if needed in JWT
+        // if (user.systemRole === SystemRole.ADMIN_APP) authRoles.push('SUPER_ADMIN'); 
 
         const payload: JwtPayload = {
             sub: user.id,
             email: user.email,
+            personId: user.person.id,
             churchId,
-            roles
+            memberId: membership?.id,
+            roles: authRoles
         };
 
         return {
             accessToken: this.jwtService.sign(payload),
             user: {
                 id: user.id,
-                fullName: user.fullName,
                 email: user.email,
+                fullName: user.person?.fullName || 'Usuario', // Get from Person
+                personId: user.person.id,
+                isOnboarded: user.isOnboarded,
+                roles: authRoles
             },
             churchId // Return to client so they know which context is active
+        };
+    }
+
+    async validateSocialUser(dto: SocialLoginDto) {
+        let user = await this.userRepository.findOne({
+            where: { email: dto.email },
+            relations: ['person']
+        });
+
+        // Flag to indicate if we are in "Claim Profile" state
+        let potentialPersonMatch: Person | null = null;
+        let isClaimProfileFlow = false;
+
+        if (!user) {
+            // Check if there is an existing PERSON with this email (OFFLINE PERSON)
+            // We need to check if this person is already linked to a user.
+            const existingPerson = await this.personRepository.findOne({
+                where: { email: dto.email },
+                relations: ['user'] // Check if already has user
+            });
+
+            if (existingPerson && !existingPerson.user) {
+                // MATCH FOUND! 
+                potentialPersonMatch = existingPerson;
+                isClaimProfileFlow = true;
+
+                const randomPassword = await bcrypt.hash(Math.random().toString(36), 10);
+                user = this.userRepository.create({
+                    email: dto.email,
+                    password: randomPassword,
+                    isPlatformAdmin: false,
+                    systemRole: SystemRole.USER,
+                    // person: null // Explicitly null
+                });
+                user = await this.userRepository.save(user);
+            } else {
+                // Standard Flow: Create Person + User linked
+                let person = this.personRepository.create({
+                    email: dto.email,
+                    fullName: dto.name || 'Usuario',
+                    avatarUrl: dto.picture,
+                });
+                person = await this.personRepository.save(person);
+
+                const randomPassword = await bcrypt.hash(Math.random().toString(36), 10);
+                user = this.userRepository.create({
+                    email: dto.email,
+                    password: randomPassword,
+                    isPlatformAdmin: false,
+                    systemRole: SystemRole.USER,
+                    person: person // Link relationship
+                });
+                user = await this.userRepository.save(user);
+
+                // Reload user with person relation to be safe
+                user.person = person;
+            }
+        }
+
+        if (isClaimProfileFlow) {
+            const payload: JwtPayload = {
+                sub: user.id,
+                email: user.email,
+                personId: null, // No person yet
+            };
+
+            return {
+                accessToken: this.jwtService.sign(payload),
+                user: {
+                    id: user.id,
+                    email: user.email,
+                },
+                claimProfile: {
+                    found: true,
+                    person: {
+                        id: potentialPersonMatch.id,
+                        fullName: potentialPersonMatch.fullName,
+                        email: potentialPersonMatch.email
+                    }
+                }
+            };
+        }
+
+        // Standard flow continue...
+        if (!user.person) {
+            user = await this.userRepository.findOne({ where: { id: user.id }, relations: ['person'] });
+        }
+
+        // Try to find a default church (first active membership linked to PERSON)
+        const membership = await this.memberRepository.findOne({
+            where: { person: { id: user.person.id } },
+            relations: ['church'],
+            order: { joinedAt: 'DESC' }
+        });
+
+        let churchId = null;
+        let authRoles: string[] = [];
+
+        if (membership) {
+            churchId = membership.church.id;
+            if (membership.ecclesiasticalRole !== EcclesiasticalRole.NONE) {
+                authRoles.push(membership.ecclesiasticalRole);
+            }
+        }
+
+        const payload: JwtPayload = {
+            sub: user.id,
+            email: user.email,
+            personId: user.person.id,
+            churchId,
+            memberId: membership?.id,
+            roles: authRoles
+        };
+
+        return {
+            accessToken: this.jwtService.sign(payload),
+            user: {
+                id: user.id,
+                email: user.email,
+                fullName: user.person.fullName,
+                personId: user.person.id,
+                isPlatformAdmin: user.isPlatformAdmin,
+                isOnboarded: user.isOnboarded,
+                avatarUrl: user.person.avatarUrl,
+                roles: authRoles
+            },
+            churchId
+        };
+    }
+
+    async switchChurch(userId: string, targetChurchId: string) {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: ['person']
+        });
+
+        if (!user) throw new UnauthorizedException('User not found');
+
+        // Check if user is a member of the target church
+        const membership = await this.memberRepository.findOne({
+            where: {
+                person: { id: user.person.id },
+                church: { id: targetChurchId }
+            },
+            relations: ['church']
+        });
+
+        if (!membership) {
+            throw new UnauthorizedException('Not a member of the target church');
+        }
+
+        const authRoles: string[] = [];
+        if (membership.ecclesiasticalRole !== EcclesiasticalRole.NONE) {
+            authRoles.push(membership.ecclesiasticalRole);
+        }
+
+        // Generate new token with updated church context
+        const payload: JwtPayload = {
+            sub: user.id,
+            email: user.email,
+            personId: user.person.id,
+            churchId: targetChurchId,
+            memberId: membership.id,
+            roles: authRoles
+        };
+
+        return {
+            accessToken: this.jwtService.sign(payload),
+            user: {
+                id: user.id,
+                email: user.email,
+                fullName: user.person.fullName,
+                personId: user.person.id,
+                isOnboarded: user.isOnboarded,
+                avatarUrl: user.person.avatarUrl,
+                roles: authRoles
+            },
+            churchId: targetChurchId,
+            churchName: membership.church.name,
+            churchSlug: membership.church.slug
+        };
+    }
+
+    async claimProfile(userId: string, personIdToClaim: string | null, createNew: boolean) {
+        const user = await this.userRepository.findOne({ where: { id: userId }, relations: ['person'] });
+        if (!user) throw new UnauthorizedException('User not found');
+        if (user.person) throw new BadRequestException('User is already linked to a person');
+
+        if (createNew) {
+            // User rejected the claim, create NEW person
+            const person = this.personRepository.create({
+                email: user.email,
+                fullName: 'Usuario', // Or prompt for name? For now default.
+            });
+            const savedPerson = await this.personRepository.save(person);
+            user.person = savedPerson;
+            await this.userRepository.save(user);
+            return this.generateTokenForUser(user);
+        } else {
+            if (!personIdToClaim) throw new BadRequestException('Person ID required');
+
+            const person = await this.personRepository.findOne({ where: { id: personIdToClaim }, relations: ['user'] });
+            if (!person) throw new NotFoundException('Person not found');
+            if (person.user) throw new BadRequestException('Person already claimed');
+
+            user.person = person;
+            await this.userRepository.save(user);
+            return this.generateTokenForUser(user);
+        }
+    }
+
+    private async generateTokenForUser(user: User) {
+        // Helper to re-generate full token after claim
+        // Reload person
+        const reloadedUser = await this.userRepository.findOne({ where: { id: user.id }, relations: ['person'] });
+
+        // Find default church
+        const membership = await this.memberRepository.findOne({
+            where: { person: { id: reloadedUser.person.id } },
+            relations: ['church'],
+            order: { joinedAt: 'DESC' }
+        });
+
+        let churchId = null;
+        let authRoles: string[] = [];
+        if (membership) {
+            churchId = membership.church.id;
+            if (membership.ecclesiasticalRole !== EcclesiasticalRole.NONE) {
+                authRoles.push(membership.ecclesiasticalRole);
+            }
+        }
+
+        const payload: JwtPayload = {
+            sub: reloadedUser.id,
+            email: reloadedUser.email,
+            personId: reloadedUser.person.id,
+            churchId,
+            memberId: membership?.id,
+            roles: authRoles
+        };
+
+        return {
+            accessToken: this.jwtService.sign(payload),
+            user: {
+                id: reloadedUser.id,
+                email: reloadedUser.email,
+                fullName: reloadedUser.person.fullName,
+                personId: reloadedUser.person.id,
+                isOnboarded: reloadedUser.isOnboarded,
+                roles: authRoles
+            },
+            churchId
         };
     }
 
