@@ -12,6 +12,15 @@ export class SubscriptionsController {
     }
 
     @UseGuards(JwtAuthGuard)
+    @Get('current')
+    async getCurrentSubscription(@Request() req) {
+        const churchId = req.user.churchId;
+        if (!churchId) throw new BadRequestException('User not associated with a church');
+        const sub = await this.subService.getCurrentSubscription(churchId);
+        return sub || {};
+    }
+
+    @UseGuards(JwtAuthGuard)
     @Post('subscribe')
     async createSubscriptionLink(@Request() req, @Body('planId') planId: string) {
         // req.user from JWT strategy

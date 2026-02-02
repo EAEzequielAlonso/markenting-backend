@@ -38,6 +38,9 @@ export class PrayerRequest {
     @Column({ default: false })
     isAnonymous: boolean;
 
+    @Column({ default: false })
+    isHidden: boolean;
+
     @OneToMany(() => PrayerUpdate, (update) => update.request)
     updates: PrayerUpdate[];
 

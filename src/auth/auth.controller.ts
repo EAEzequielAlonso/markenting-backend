@@ -67,6 +67,7 @@ export class AuthController {
             avatarUrl: user.person?.avatarUrl,
             churchId: req.user.churchId,
             memberId: req.user.memberId,
+            ecclesiasticalRole: req.user.ecclesiasticalRole,
             roles: req.user.roles
         };
     }

@@ -19,7 +19,7 @@ export class FollowUpsService {
             church: { id: churchId },
             ...data,
             createdByMemberId: creatorMemberId,
-            status: FollowUpStatus.ACTIVE
+            status: FollowUpStatus.VISITOR
         });
         return this.personRepo.save(person);
     }
@@ -52,7 +52,7 @@ export class FollowUpsService {
             // User requirement: "Filtros por estado".
             // If no filter, maybe show ACTIVE?
             // Let's default to ACTIVE if not specified.
-            query.andWhere('fp.status = :defaultStatus', { defaultStatus: FollowUpStatus.ACTIVE });
+            query.andWhere('fp.status = :defaultStatus', { defaultStatus: FollowUpStatus.VISITOR });
         }
 
         if (!canViewAll) {
@@ -92,6 +92,16 @@ export class FollowUpsService {
 
         person.status = status;
         return this.personRepo.save(person);
+    }
+
+    async remove(personId: string, actorRoles: string[]) {
+        // Only Admin/Pastor/Deacon
+        if (!this.canManage(actorRoles)) throw new ForbiddenException('No tienes permisos para eliminar.');
+
+        const person = await this.personRepo.findOne({ where: { id: personId } });
+        if (!person) throw new NotFoundException('Persona no encontrada');
+
+        return this.personRepo.delete(personId);
     }
 
     private canManage(roles: string[]): boolean {

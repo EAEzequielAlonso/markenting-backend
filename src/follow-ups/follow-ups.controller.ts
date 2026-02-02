@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { FollowUpsService } from './follow-ups.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentChurch, CurrentUser } from '../common/decorators';
@@ -43,5 +43,13 @@ export class FollowUpsController {
         @Body() body: { status: FollowUpStatus }
     ) {
         return this.service.setStatus(id, body.status, user.roles);
+    }
+
+    @Delete(':id')
+    remove(
+        @Param('id') id: string,
+        @CurrentUser() user: any
+    ) {
+        return this.service.remove(id, user.roles);
     }
 }

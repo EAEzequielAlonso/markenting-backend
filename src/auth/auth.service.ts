@@ -9,7 +9,7 @@ import { Church } from '../churches/entities/church.entity';
 import { ChurchMember } from '../members/entities/church-member.entity';
 import { RegisterChurchDto, JoinChurchDto, LoginDto, RegisterUserDto } from './dto/dto';
 import { SocialLoginDto } from './dto/social-login.dto';
-import { MembershipStatus, EcclesiasticalRole, PlanType, SubscriptionStatus, SystemRole } from '../common/enums';
+import { MembershipStatus, EcclesiasticalRole, FunctionalRole, PlanType, SubscriptionStatus, SystemRole } from '../common/enums';
 import { JwtPayload } from './interfaces';
 
 @Injectable()
@@ -59,7 +59,6 @@ export class AuthService {
         const user = this.userRepository.create({
             email: dto.email,
             password: hashedPassword,
-            isPlatformAdmin: false,
             systemRole: SystemRole.USER,
             person: savedPerson
         });
@@ -70,6 +69,7 @@ export class AuthService {
             person: savedPerson,
             church: savedChurch,
             ecclesiasticalRole: EcclesiasticalRole.PASTOR, // Default for creator
+            functionalRoles: [FunctionalRole.ADMIN_CHURCH, FunctionalRole.AUDITOR, FunctionalRole.COUNSELOR, FunctionalRole.MINISTRY_LEADER], // Full access
             status: MembershipStatus.MEMBER,
             isAuthorizedCounselor: true // Admin is counselor by default
         });
@@ -104,7 +104,6 @@ export class AuthService {
         const user = this.userRepository.create({
             email: dto.email,
             password: hashedPassword,
-            isPlatformAdmin: false,
             systemRole: SystemRole.USER,
             person: person
         });
@@ -138,7 +137,6 @@ export class AuthService {
             user = this.userRepository.create({
                 email: dto.email,
                 password: hashedPassword,
-                isPlatformAdmin: false,
                 systemRole: SystemRole.USER,
                 person: person
             });
@@ -161,7 +159,7 @@ export class AuthService {
             person: person,
             church,
             ecclesiasticalRole: EcclesiasticalRole.NONE,
-            status: MembershipStatus.PROSPECT,
+            status: MembershipStatus.MEMBER,
         });
         await this.memberRepository.save(member);
 
@@ -171,11 +169,15 @@ export class AuthService {
     async login(dto: LoginDto) {
         const user = await this.userRepository.findOne({
             where: { email: dto.email },
-            select: ['id', 'email', 'password', 'isPlatformAdmin', 'isOnboarded', 'systemRole'],
+            select: ['id', 'email', 'password', 'isOnboarded', 'systemRole'],
             relations: ['person'] // Load Person to get ID
         });
 
-        if (!user || !(await bcrypt.compare(dto.password, user.password))) {
+        if (!user) { // Removed bcrypt check for safety if user not found, but logic was:
+            throw new UnauthorizedException('Invalid credentials');
+        }
+
+        if (!(await bcrypt.compare(dto.password, user.password))) {
             throw new UnauthorizedException('Invalid credentials');
         }
 
@@ -200,8 +202,10 @@ export class AuthService {
 
             churchId = church.id;
             // Push the single role to array
-            if (membership.ecclesiasticalRole !== EcclesiasticalRole.NONE) {
-                authRoles.push(membership.ecclesiasticalRole);
+            // Push the single role to array
+            // Push functional roles to roles array (for PermissionsGuard)
+            if (membership.functionalRoles && membership.functionalRoles.length > 0) {
+                authRoles.push(...membership.functionalRoles);
             }
         } else {
             // Try to find a default church (first active membership)
@@ -212,8 +216,8 @@ export class AuthService {
             });
             if (membership) {
                 churchId = membership.church.id;
-                if (membership.ecclesiasticalRole !== EcclesiasticalRole.NONE) {
-                    authRoles.push(membership.ecclesiasticalRole);
+                if (membership.functionalRoles && membership.functionalRoles.length > 0) {
+                    authRoles.push(...membership.functionalRoles);
                 }
             }
         }
@@ -227,7 +231,8 @@ export class AuthService {
             personId: user.person.id,
             churchId,
             memberId: membership?.id,
-            roles: authRoles
+            roles: authRoles,
+            ecclesiasticalRole: membership?.ecclesiasticalRole
         };
 
         return {
@@ -237,6 +242,8 @@ export class AuthService {
                 email: user.email,
                 fullName: user.person?.fullName || 'Usuario', // Get from Person
                 personId: user.person.id,
+                memberId: membership?.id,
+                ecclesiasticalRole: membership?.ecclesiasticalRole,
                 isOnboarded: user.isOnboarded,
                 roles: authRoles
             },
@@ -271,7 +278,6 @@ export class AuthService {
                 user = this.userRepository.create({
                     email: dto.email,
                     password: randomPassword,
-                    isPlatformAdmin: false,
                     systemRole: SystemRole.USER,
                     // person: null // Explicitly null
                 });
@@ -289,7 +295,6 @@ export class AuthService {
                 user = this.userRepository.create({
                     email: dto.email,
                     password: randomPassword,
-                    isPlatformAdmin: false,
                     systemRole: SystemRole.USER,
                     person: person // Link relationship
                 });
@@ -341,8 +346,8 @@ export class AuthService {
 
         if (membership) {
             churchId = membership.church.id;
-            if (membership.ecclesiasticalRole !== EcclesiasticalRole.NONE) {
-                authRoles.push(membership.ecclesiasticalRole);
+            if (membership.functionalRoles && membership.functionalRoles.length > 0) {
+                authRoles.push(...membership.functionalRoles);
             }
         }
 
@@ -352,7 +357,8 @@ export class AuthService {
             personId: user.person.id,
             churchId,
             memberId: membership?.id,
-            roles: authRoles
+            roles: authRoles,
+            ecclesiasticalRole: membership?.ecclesiasticalRole
         };
 
         return {
@@ -362,7 +368,8 @@ export class AuthService {
                 email: user.email,
                 fullName: user.person.fullName,
                 personId: user.person.id,
-                isPlatformAdmin: user.isPlatformAdmin,
+                memberId: membership?.id,
+                ecclesiasticalRole: membership?.ecclesiasticalRole,
                 isOnboarded: user.isOnboarded,
                 avatarUrl: user.person.avatarUrl,
                 roles: authRoles
@@ -393,8 +400,8 @@ export class AuthService {
         }
 
         const authRoles: string[] = [];
-        if (membership.ecclesiasticalRole !== EcclesiasticalRole.NONE) {
-            authRoles.push(membership.ecclesiasticalRole);
+        if (membership.functionalRoles && membership.functionalRoles.length > 0) {
+            authRoles.push(...membership.functionalRoles);
         }
 
         // Generate new token with updated church context
@@ -404,7 +411,8 @@ export class AuthService {
             personId: user.person.id,
             churchId: targetChurchId,
             memberId: membership.id,
-            roles: authRoles
+            roles: authRoles,
+            ecclesiasticalRole: membership.ecclesiasticalRole
         };
 
         return {
@@ -414,6 +422,8 @@ export class AuthService {
                 email: user.email,
                 fullName: user.person.fullName,
                 personId: user.person.id,
+                memberId: membership.id,
+                ecclesiasticalRole: membership.ecclesiasticalRole,
                 isOnboarded: user.isOnboarded,
                 avatarUrl: user.person.avatarUrl,
                 roles: authRoles
@@ -468,8 +478,8 @@ export class AuthService {
         let authRoles: string[] = [];
         if (membership) {
             churchId = membership.church.id;
-            if (membership.ecclesiasticalRole !== EcclesiasticalRole.NONE) {
-                authRoles.push(membership.ecclesiasticalRole);
+            if (membership.functionalRoles && membership.functionalRoles.length > 0) {
+                authRoles.push(...membership.functionalRoles);
             }
         }
 

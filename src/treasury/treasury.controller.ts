@@ -1,9 +1,10 @@
 import { Controller, Get, Post, Body, UseGuards, Query, Patch, Param, Delete } from '@nestjs/common';
 import { TreasuryService } from './treasury.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { CurrentChurch, CurrentUser } from '../common/decorators';
 import { User } from '../users/entities/user.entity';
+import { EcclesiasticalRole, FunctionalRole } from '../common/enums';
 
 import { TreasuryReportsService } from './reports.service';
 import { Response } from 'express';
@@ -11,6 +12,7 @@ import { Res } from '@nestjs/common';
 
 @Controller('treasury')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(FunctionalRole.TREASURER)
 export class TreasuryController {
     constructor(
         private readonly treasuryService: TreasuryService,
@@ -35,6 +37,11 @@ export class TreasuryController {
     @Get('transactions/:id/audit')
     getAuditLogs(@Param('id') id: string) {
         return this.treasuryService.getAuditLogs(id);
+    }
+
+    @Delete('transactions/:id')
+    deleteTransaction(@Param('id') id: string, @CurrentUser() user: User) {
+        return this.treasuryService.deleteTransaction(id, user.id);
     }
 
     @Get('reports/ppt')

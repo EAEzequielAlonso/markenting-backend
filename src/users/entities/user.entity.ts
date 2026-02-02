@@ -14,9 +14,6 @@ export class User {
     password: string;
 
     @Column({ default: false })
-    isPlatformAdmin: boolean;
-
-    @Column({ default: false })
     isOnboarded: boolean;
 
     @Column({

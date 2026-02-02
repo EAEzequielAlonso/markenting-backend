@@ -26,7 +26,7 @@ export class FollowUpPerson {
     @Column({
         type: 'enum',
         enum: FollowUpStatus,
-        default: FollowUpStatus.ACTIVE
+        default: FollowUpStatus.VISITOR
     })
     status: FollowUpStatus;
 

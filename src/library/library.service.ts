@@ -69,6 +69,59 @@ export class LibraryService {
 
     // --- LOANS ---
 
+    async requestLoan(bookId: string, borrowerMemberId: string, durationDays: number = 14) {
+        const book = await this.bookRepo.findOne({ where: { id: bookId } });
+        if (!book) throw new NotFoundException('Libro no encontrado');
+
+        if (book.status !== BookStatus.AVAILABLE) {
+            throw new BadRequestException('El libro no está disponible para solicitud');
+        }
+
+        const borrower = await this.memberRepo.findOne({ where: { id: borrowerMemberId } });
+        if (!borrower) throw new NotFoundException('Miembro no encontrado');
+
+        // Check availability logic? 
+        // For now just create request.
+
+        const loan = this.loanRepo.create({
+            book,
+            borrower,
+            outDate: new Date(), // Request date
+            dueDate: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000), // Provisional due date
+            status: LoanStatus.REQUESTED
+        });
+
+        return this.loanRepo.save(loan);
+    }
+
+    async approveLoan(loanId: string) {
+        const loan = await this.loanRepo.findOne({ where: { id: loanId }, relations: ['book'] });
+        if (!loan) throw new NotFoundException('Solicitud no encontrada');
+        if (loan.status !== LoanStatus.REQUESTED) throw new BadRequestException('La solicitud no está en estado pendiente');
+
+        if (loan.book.status !== BookStatus.AVAILABLE) {
+            throw new BadRequestException('El libro ya no está disponible');
+        }
+
+        loan.status = LoanStatus.ACTIVE;
+        loan.outDate = new Date(); // Reset outDate to Approval Date
+        // Keep original proposed duration or recalculate due date? 
+        // Let's keep original gap.
+
+        loan.book.status = BookStatus.LOANED;
+        await this.bookRepo.save(loan.book);
+
+        return this.loanRepo.save(loan);
+    }
+
+    async rejectLoan(loanId: string) {
+        const loan = await this.loanRepo.findOne({ where: { id: loanId } });
+        if (!loan) throw new NotFoundException('Solicitud no encontrada');
+
+        loan.status = LoanStatus.REJECTED;
+        return this.loanRepo.save(loan);
+    }
+
     async loanBook(bookId: string, borrowerMemberId: string, durationDays: number = 14, dueDate?: string) {
         // Enforce transaction implicitly or explicitly if critical, simply logic here
         const book = await this.bookRepo.findOne({ where: { id: bookId } });

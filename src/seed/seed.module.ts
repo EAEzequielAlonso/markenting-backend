@@ -18,8 +18,8 @@ import { CareProcess } from '../counseling/entities/care-process.entity';
 import { CareParticipant } from '../counseling/entities/care-participant.entity';
 import { CareNote } from '../counseling/entities/care-note.entity';
 import { CareSession } from '../counseling/entities/care-session.entity';
-import { Book } from 'src/library/entities/book.entity';
-import { Loan } from 'src/library/entities/loan.entity';
+import { Book } from '../library/entities/book.entity';
+import { Loan } from '../library/entities/loan.entity';
 
 @Module({
   imports: [

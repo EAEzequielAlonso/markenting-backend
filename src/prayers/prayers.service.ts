@@ -49,18 +49,15 @@ export class PrayersService {
 
         // --- Status Filtering Logic ---
         if (statusFilter === 'ACTIVE') {
-            query.andWhere('pr.status IN (:...activeStatuses)', { activeStatuses: [PrayerRequestStatus.WAITING, PrayerRequestStatus.HIDDEN] });
+            query.andWhere('pr.status IN (:...activeStatuses)', { activeStatuses: [PrayerRequestStatus.WAITING] });
         } else if (statusFilter === 'ANSWERED') {
             query.andWhere('pr.status = :answeredStatus', { answeredStatus: PrayerRequestStatus.ANSWERED });
         }
 
         if (canViewAll) {
-            // Pastors/Admins see EVERYTHING except DELETED (unless we want to show deleted too, but requirements say "Visible for Pastor/Admin")
-            // Requirement 2: OCULTO Visible solo para autor y roles pastor/admin.
-            // Requirement 2: ELIMINADO Definitiva.
-            // If soft delete is implemented via status DELETED, we might show it or not.
-            // Let's hide DELETED by default for simplicity unless specifically asked, but Oculto (HIDDEN) is visible.
+            // Pastors/Admins see EVERYTHING except DELETED
             query.andWhere('pr.status != :deletedStatus', { deletedStatus: PrayerRequestStatus.DELETED });
+            // Note: They CAN see isHidden=true
         } else {
             // Regular Members:
             // 1. Own Requests (Any status except maybe DELETED? Requirement says "Visible only for author..." for HIDDEN)
@@ -90,6 +87,9 @@ export class PrayersService {
 
             // Hide DELETED for author too? Usually yes.
             query.andWhere('pr.status != :deletedStatus', { deletedStatus: PrayerRequestStatus.DELETED });
+
+            // Hide HIDDEN unless author
+            query.andWhere('(pr.isHidden = false OR pr.member.id = :viewerId)', { viewerId: viewerMemberId });
         }
 
         const [items, total] = await query.getManyAndCount();
@@ -155,6 +155,14 @@ export class PrayersService {
         if (!request) throw new NotFoundException('Petición no encontrada');
 
         request.status = status;
+        return this.requestRepo.save(request);
+    }
+    async toggleHidden(requestId: string, isHidden: boolean) {
+        // Validation handled in Controller (Admin/Pastor only)
+        const request = await this.requestRepo.findOne({ where: { id: requestId } });
+        if (!request) throw new NotFoundException('Petición no encontrada');
+
+        request.isHidden = isHidden;
         return this.requestRepo.save(request);
     }
 }

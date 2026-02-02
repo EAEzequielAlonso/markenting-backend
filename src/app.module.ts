@@ -22,6 +22,7 @@ import { PrayersModule } from './prayers/prayers.module';
 import { DiscipleshipModule } from './discipleships/discipleship.module';
 import { CoursesModule } from './courses/courses.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { DonationsModule } from './donations/donations.module';
 
 @Module({
   imports: [
@@ -39,7 +40,7 @@ import { InventoryModule } from './inventory/inventory.module';
         database: configService.get<string>('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: true,
-        dropSchema: false,
+        dropSchema: true,
         autoLoadEntities: true,
       }),
       inject: [ConfigService],
@@ -64,7 +65,8 @@ import { InventoryModule } from './inventory/inventory.module';
     DiscipleshipModule,
     CoursesModule,
     InventoryModule,
-    WorshipModule
+    DonationsModule,
+    WorshipModule,
   ]
 })
 export class AppModule { }

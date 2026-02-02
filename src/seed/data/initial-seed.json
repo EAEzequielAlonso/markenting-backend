@@ -29,13 +29,21 @@
                 {
                     "email": "leader1@phyessoft.com",
                     "name": "Sofia Lopez",
-                    "ecclesiasticalRole": "LEADER",
+                    "ecclesiasticalRole": "NONE",
+                    "functionalRoles": [
+                        "MINISTRY_LEADER",
+                        "MEMBER"
+                    ],
                     "status": "MEMBER"
                 },
                 {
                     "email": "leader2@phyessoft.com",
                     "name": "Diego Torres",
-                    "ecclesiasticalRole": "LEADER",
+                    "ecclesiasticalRole": "NONE",
+                    "functionalRoles": [
+                        "MINISTRY_LEADER",
+                        "MEMBER"
+                    ],
                     "status": "MEMBER"
                 },
                 {
@@ -90,19 +98,19 @@
                     "email": "prospect1@phyessoft.com",
                     "name": "Fernando Soto",
                     "ecclesiasticalRole": "NONE",
-                    "status": "PROSPECT"
+                    "status": "MEMBER"
                 },
                 {
                     "email": "visitor1@phyessoft.com",
                     "name": "Laura Vera",
                     "ecclesiasticalRole": "NONE",
-                    "status": "PROSPECT"
+                    "status": "MEMBER"
                 },
                 {
                     "email": "visitor2@phyessoft.com",
                     "name": "Mateo Blanco",
                     "ecclesiasticalRole": "NONE",
-                    "status": "PROSPECT"
+                    "status": "MEMBER"
                 }
             ],
             "smallGroups": [
@@ -174,16 +182,22 @@
             "treasury": {
                 "accounts": [
                     {
-                        "name": "Caja Central ARS",
+                        "name": "Caja Efectivo ARS",
                         "type": "asset",
                         "currency": "ARS",
                         "balance": 1500000.00
                     },
                     {
-                        "name": "Banco Galicia USD",
+                        "name": "Caja Efectivo USD",
                         "type": "asset",
                         "currency": "USD",
                         "balance": 2500.00
+                    },
+                    {
+                        "name": "Personal Pay ARS",
+                        "type": "asset",
+                        "currency": "ARS",
+                        "balance": 32500.00
                     },
                     {
                         "name": "Fondo Pro Edificio",
@@ -192,13 +206,19 @@
                         "balance": 500000.00
                     },
                     {
-                        "name": "Diezmos",
+                        "name": "Ofrenda Dominical",
                         "type": "income",
                         "currency": "ARS",
                         "balance": 0
                     },
                     {
-                        "name": "Ofrendas",
+                        "name": "Ofrenda en Dolares",
+                        "type": "income",
+                        "currency": "USD",
+                        "balance": 0
+                    },
+                    {
+                        "name": "Ofrenda Extraordinaria",
                         "type": "income",
                         "currency": "ARS",
                         "balance": 0
@@ -228,23 +248,23 @@
                         "amount": 250000,
                         "currency": "ARS",
                         "type": "INCOME",
-                        "source": "Diezmos",
-                        "dest": "Caja Central ARS"
+                        "source": "Ofrenda Dominical",
+                        "dest": "Caja Efectivo ARS"
                     },
                     {
                         "description": "Ofrenda Especial Navidad",
                         "amount": 100,
                         "currency": "USD",
                         "type": "INCOME",
-                        "source": "Ofrendas",
-                        "dest": "Banco Galicia USD"
+                        "source": "Ofrenda Dominical",
+                        "dest": "Caja Efectivo USD"
                     },
                     {
                         "description": "Pago Factura Luz",
                         "amount": 45000,
                         "currency": "ARS",
                         "type": "EXPENSE",
-                        "source": "Caja Central ARS",
+                        "source": "Caja Efectivo ARS",
                         "dest": "Servicios (Luz/Agua)"
                     },
                     {
@@ -252,7 +272,7 @@
                         "amount": 150,
                         "currency": "USD",
                         "type": "EXPENSE",
-                        "source": "Banco Galicia USD",
+                        "source": "Caja Efectivo USD",
                         "dest": "Ayuda Social",
                         "rate": 1450
                     }

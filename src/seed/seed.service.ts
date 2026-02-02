@@ -23,7 +23,7 @@ import { CareNote } from '../counseling/entities/care-note.entity';
 import { CareSession } from '../counseling/entities/care-session.entity';
 import { Book } from '../library/entities/book.entity';
 import { Loan } from '../library/entities/loan.entity';
-import { PlanType, SubscriptionStatus, MembershipStatus, EcclesiasticalRole, SystemRole, Sex, MaritalStatus, SmallGroupRole, FamilyRole, TransactionType, AccountType, CareProcessType, CareProcessStatus, CareParticipantRole, CareNoteVisibility } from '../common/enums';
+import { PlanType, SubscriptionStatus, MembershipStatus, EcclesiasticalRole, FunctionalRole, SystemRole, Sex, MaritalStatus, SmallGroupRole, FamilyRole, TransactionType, AccountType, CareProcessType, CareProcessStatus, CareParticipantRole, CareNoteVisibility } from '../common/enums';
 import { BookOwnershipType, BookStatus, LoanStatus } from '../common/enums/library.enums';
 
 @Injectable()
@@ -113,7 +113,6 @@ export class SeedService {
                     adminUser = this.userRepository.create({
                         email: churchData.adminEmail,
                         password: hashedPassword,
-                        isPlatformAdmin: false,
                         systemRole: SystemRole.USER,
                         isOnboarded: true,
                         person: adminPerson
@@ -131,11 +130,24 @@ export class SeedService {
                         person: adminPerson,
                         church: savedChurch,
                         ecclesiasticalRole: EcclesiasticalRole.PASTOR,
+                        functionalRoles: [FunctionalRole.ADMIN_CHURCH, FunctionalRole.AUDITOR, FunctionalRole.COUNSELOR, FunctionalRole.MINISTRY_LEADER],
                         status: MembershipStatus.MEMBER,
                         isAuthorizedCounselor: true,
                         joinedAt: new Date()
                     });
                     await queryRunner.manager.save(adminMember);
+                } else {
+                    // FIX: Ensure roles are populated for Admin if empty or just NONE (migration fix)
+                    let updated = false;
+                    if (!adminMember.ecclesiasticalRole || adminMember.ecclesiasticalRole === EcclesiasticalRole.NONE) {
+                        adminMember.ecclesiasticalRole = EcclesiasticalRole.PASTOR;
+                        updated = true;
+                    }
+                    if (!adminMember.functionalRoles || adminMember.functionalRoles.length <= 1) { // Default is [MEMBER]
+                        adminMember.functionalRoles = [FunctionalRole.ADMIN_CHURCH, FunctionalRole.AUDITOR, FunctionalRole.COUNSELOR, FunctionalRole.MINISTRY_LEADER];
+                        updated = true;
+                    }
+                    if (updated) await queryRunner.manager.save(adminMember);
                 }
 
 
@@ -174,7 +186,6 @@ export class SeedService {
                         user = this.userRepository.create({
                             email: mData.email,
                             password: hashedPassword,
-                            isPlatformAdmin: false,
                             systemRole: SystemRole.USER,
                             isOnboarded: true,
                             person: person
@@ -187,12 +198,40 @@ export class SeedService {
                         where: { person: { id: person.id }, church: { id: savedChurch.id } }
                     });
 
-                    if (!member) {
+                    if (member) {
+                        const shouldUpdate = !member.ecclesiasticalRole ||
+                            member.ecclesiasticalRole === EcclesiasticalRole.NONE && mData.ecclesiasticalRole !== EcclesiasticalRole.NONE;
+
+                        // Migration logic for functional roles
+                        const shouldMigrate = !member.functionalRoles || member.functionalRoles.length === 1 && member.functionalRoles[0] === FunctionalRole.MEMBER;
+
+                        if (shouldUpdate || shouldMigrate) {
+                            if (shouldUpdate) {
+                                member.ecclesiasticalRole = mData.ecclesiasticalRole as EcclesiasticalRole || EcclesiasticalRole.NONE;
+                            }
+                            // Auto-assign functional roles based on ecclesiastical for migration
+                            if (member.ecclesiasticalRole === EcclesiasticalRole.PASTOR) {
+                                member.functionalRoles = [FunctionalRole.ADMIN_CHURCH, FunctionalRole.AUDITOR, FunctionalRole.COUNSELOR];
+                            }
+                            // Map old ecclesiastical roles to functional roles if needed
+                            /*
+                            if (member.ecclesiasticalRole === 'TREASURER') {
+                                functionalRoles.push(FunctionalRole.TREASURER); 
+                            }
+                            */ else {
+                                member.functionalRoles = [FunctionalRole.MEMBER];
+                            }
+
+                            await queryRunner.manager.save(member);
+                            this.logger.log(`Updated roles for member: ${mData.email}`);
+                        }
+                    } else {
                         member = this.memberRepository.create({
                             person: person,
                             church: savedChurch,
                             ecclesiasticalRole: mData.ecclesiasticalRole as EcclesiasticalRole || EcclesiasticalRole.NONE,
-                            status: mData.status as MembershipStatus || MembershipStatus.PROSPECT,
+                            functionalRoles: mData.functionalRoles?.map(r => FunctionalRole[r as keyof typeof FunctionalRole]) || [FunctionalRole.MEMBER],
+                            status: mData.status as MembershipStatus || MembershipStatus.MEMBER,
                             isAuthorizedCounselor: mData.isCounselor || false,
                             joinedAt: faker.date.past()
                         });

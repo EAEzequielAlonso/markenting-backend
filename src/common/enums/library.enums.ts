@@ -9,6 +9,8 @@ export enum BookStatus {
 }
 
 export enum LoanStatus {
+    REQUESTED = 'REQUESTED',
     ACTIVE = 'ACTIVE',
     RETURNED = 'RETURNED',
+    REJECTED = 'REJECTED',
 }

@@ -18,7 +18,7 @@ export class CreateFollowUpDto {
     @IsOptional()
     email?: string;
 
-    @ApiProperty({ enum: FollowUpStatus, default: FollowUpStatus.NEW })
+    @ApiProperty({ enum: FollowUpStatus, default: FollowUpStatus.VISITOR })
     @IsEnum(FollowUpStatus)
     @IsOptional()
     status?: FollowUpStatus;

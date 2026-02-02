@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, EntityManager } from 'typeorm';
 import { ChurchMember } from './entities/church-member.entity';
@@ -6,7 +6,7 @@ import { Person } from '../users/entities/person.entity';
 import { User } from '../users/entities/user.entity';
 import { CareParticipant } from '../counseling/entities/care-participant.entity';
 import { CreateMemberDto } from './dto/create-member.dto';
-import { MembershipStatus, EcclesiasticalRole } from '../common/enums';
+import { MembershipStatus, EcclesiasticalRole, FunctionalRole } from '../common/enums';
 
 @Injectable()
 export class MembersService {
@@ -40,6 +40,7 @@ export class MembersService {
             fullName, // Optional now
             status,
             ecclesiasticalRole,
+            functionalRoles,
             documentId,
             phoneNumber,
             birthDate
@@ -111,6 +112,7 @@ export class MembersService {
             person,
             church: { id: churchId },
             ecclesiasticalRole: ecclesiasticalRole || EcclesiasticalRole.NONE,
+            functionalRoles: functionalRoles || [FunctionalRole.MEMBER],
             status: status || MembershipStatus.MEMBER,
             joinedAt: new Date()
         });
@@ -169,21 +171,33 @@ export class MembersService {
         };
     }
 
-    async update(id: string, updateData: any, churchId: string) {
+    async update(id: string, updateData: any, churchId: string, actingMemberId?: string) {
         const member = await this.memberRepository.findOne({
             where: { id, church: { id: churchId } },
             relations: ['person', 'person.user']
         });
         if (!member) throw new NotFoundException('Member not found');
 
+        // Security check: Prevent self-demotion from ADMIN_CHURCH
+        if (actingMemberId && actingMemberId === id) {
+            const hasAdminRole = member.functionalRoles?.includes(FunctionalRole.ADMIN_CHURCH);
+            const isRemovingAdmin = updateData.functionalRoles && !updateData.functionalRoles.includes(FunctionalRole.ADMIN_CHURCH);
+
+            if (hasAdminRole && isRemovingAdmin) {
+                throw new ForbiddenException('No puedes quitarte el rol de Administrador de Iglesia a ti mismo. Otro administrador debe hacerlo.');
+            }
+        }
+
         if (updateData.status) {
             member.status = updateData.status;
         }
 
-        if (updateData.ecclesiasticalRole) { // Correct property name
+        if (updateData.ecclesiasticalRole) {
             member.ecclesiasticalRole = updateData.ecclesiasticalRole;
-        } else if (updateData.role) {
-            member.ecclesiasticalRole = updateData.role;
+        }
+
+        if (updateData.functionalRoles) {
+            member.functionalRoles = updateData.functionalRoles;
         }
 
         const parseDate = (d: string) => {
@@ -284,7 +298,7 @@ export class MembersService {
             person: person,
             church: { id: targetChurchId },
             ecclesiasticalRole: EcclesiasticalRole.NONE,
-            status: MembershipStatus.PROSPECT, // Pending/Prospect
+            status: MembershipStatus.MEMBER, // Pending/Prospect
         });
 
         const savedMember = await this.memberRepository.save(member);

@@ -76,4 +76,12 @@ export class PrayersController {
     ) {
         return this.prayersService.setStatus(id, body.status);
     }
+    @Put(':id/hidden')
+    @RequirePermissions(AppPermission.PRAYER_VIEW_ALL) // Assume Moderation permission
+    toggleHidden(
+        @Param('id') id: string,
+        @Body() body: { isHidden: boolean }
+    ) {
+        return this.prayersService.toggleHidden(id, body.isHidden);
+    }
 }

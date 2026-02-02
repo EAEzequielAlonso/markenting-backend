@@ -6,7 +6,7 @@ import { CareParticipant } from './entities/care-participant.entity';
 import { CareNote } from './entities/care-note.entity';
 import { ChurchMember as Member } from '../members/entities/church-member.entity';
 import { Church } from '../churches/entities/church.entity';
-import { CareProcessType, CareProcessStatus, CareParticipantRole, CareNoteVisibility, CareSessionStatus, CareTaskStatus } from '../common/enums';
+import { CareProcessType, CareProcessStatus, CareParticipantRole, CareNoteVisibility, CareSessionStatus, CareTaskStatus, SystemRole } from '../common/enums';
 import { AppPermission } from '../auth/authorization/permissions.enum';
 import { getPermissionsForRoles } from '../auth/authorization/role-permissions.config';
 import { CareSession } from './entities/care-session.entity';
@@ -48,7 +48,7 @@ export class CounselingService {
 
         // Logic check: Only authorized counselors (or admins) can create FORMAL processes
         if (type === CareProcessType.FORMAL) {
-            const isPlatformAdmin = counselor.person?.user?.isPlatformAdmin || false;
+            const isPlatformAdmin = counselor.person?.user?.systemRole === SystemRole.ADMIN_APP || false;
             // Check if user is Church Admin (Role name 'ADMIN') or Pastor
             const isChurchAdmin = counselor.ecclesiasticalRole === 'PASTOR'; // Using string or Enum logic
             const isAuthorized = counselor.isAuthorizedCounselor || isPlatformAdmin || isChurchAdmin;

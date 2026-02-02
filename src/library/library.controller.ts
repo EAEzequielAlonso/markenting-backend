@@ -1,19 +1,16 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Query, Put, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Query, Put, Delete, Patch, Request } from '@nestjs/common';
 import { LibraryService } from './library.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
-import { AppPermission } from '../auth/authorization/permissions.enum';
-import { CurrentChurch, CurrentUser } from '../common/decorators';
-import { BookOwnershipType } from '../common/enums/library.enums';
+import { RolesGuard, Roles } from '../auth/guards/roles.guard';
+import { EcclesiasticalRole, FunctionalRole } from '../common/enums';
+import { CurrentChurch } from '../common/decorators';
 
 @Controller('library')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class LibraryController {
     constructor(private readonly libraryService: LibraryService) { }
 
     @Get('books')
-    @RequirePermissions(AppPermission.LIBRARY_VIEW)
     findAll(
         @CurrentChurch() churchId: string,
         @Query('search') search?: string
@@ -22,7 +19,7 @@ export class LibraryController {
     }
 
     @Post('books')
-    @RequirePermissions(AppPermission.LIBRARY_MANAGE_BOOKS)
+    @Roles(FunctionalRole.LIBRARIAN, EcclesiasticalRole.PASTOR)
     createBook(
         @CurrentChurch() churchId: string,
         @Body() body: any // TODO DTO
@@ -31,25 +28,46 @@ export class LibraryController {
     }
 
     @Put('books/:id')
-    @RequirePermissions(AppPermission.LIBRARY_MANAGE_BOOKS)
+    @Roles(FunctionalRole.LIBRARIAN, EcclesiasticalRole.PASTOR)
     updateBook(@Param('id') id: string, @Body() body: any) {
         return this.libraryService.updateBook(id, body);
     }
 
     @Delete('books/:id')
-    @RequirePermissions(AppPermission.LIBRARY_MANAGE_BOOKS)
+    @Roles(FunctionalRole.LIBRARIAN, EcclesiasticalRole.PASTOR)
     deleteBook(@Param('id') id: string) {
         return this.libraryService.deleteBook(id);
     }
 
     @Get('loans/active')
-    @RequirePermissions(AppPermission.LIBRARY_MANAGE_LOANS)
+    @Roles(FunctionalRole.LIBRARIAN, EcclesiasticalRole.PASTOR)
     getActiveLoans(@CurrentChurch() churchId: string) {
         return this.libraryService.getActiveLoans(churchId);
     }
 
+    @Post('loans/request')
+    requestLoan(
+        @Body() body: { bookId: string, durationDays?: number },
+        @Request() req
+    ) {
+        // User requests for themselves (memberId from token)
+        return this.libraryService.requestLoan(body.bookId, req.user.memberId, body.durationDays);
+    }
+
+    @Post('loans/:id/approve')
+    @Roles(FunctionalRole.LIBRARIAN, EcclesiasticalRole.PASTOR)
+    approveLoan(@Param('id') loanId: string) {
+        return this.libraryService.approveLoan(loanId);
+    }
+
+    @Post('loans/:id/reject')
+    @Roles(FunctionalRole.LIBRARIAN, EcclesiasticalRole.PASTOR)
+    rejectLoan(@Param('id') loanId: string) {
+        return this.libraryService.rejectLoan(loanId);
+    }
+
     @Post('loans')
-    @RequirePermissions(AppPermission.LIBRARY_MANAGE_LOANS)
+    @Roles(FunctionalRole.LIBRARIAN, EcclesiasticalRole.PASTOR)
     loanBook(
         @Body() body: { bookId: string, borrowerMemberId: string, durationDays?: number, dueDate?: string }
     ) {
@@ -57,7 +75,7 @@ export class LibraryController {
     }
 
     @Post('loans/:id/return')
-    @RequirePermissions(AppPermission.LIBRARY_MANAGE_LOANS)
+    @Roles(FunctionalRole.LIBRARIAN, EcclesiasticalRole.PASTOR)
     returnBook(@Param('id') loanId: string) {
         return this.libraryService.returnBook(loanId);
     }

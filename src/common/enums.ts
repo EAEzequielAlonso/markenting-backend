@@ -25,7 +25,6 @@ export enum SubscriptionStatus {
 // }
 
 export enum MembershipStatus {
-    PROSPECT = 'PROSPECT',
     MEMBER = 'MEMBER',
     CHILD = 'CHILD',
     DISCIPLINED = 'DISCIPLINED',
@@ -38,8 +37,41 @@ export enum EcclesiasticalRole {
     BISHOP = 'BISHOP',
     ELDER = 'ELDER',
     DEACON = 'DEACON',
-    LEADER = 'LEADER',
     NONE = 'NONE'
+}
+
+export enum FunctionalRole {
+    ADMIN_CHURCH = 'ADMIN_CHURCH',
+    TREASURER = 'TREASURER',
+    AUDITOR = 'AUDITOR',
+    COUNSELOR = 'COUNSELOR',
+    MINISTRY_LEADER = 'MINISTRY_LEADER',
+    LIBRARIAN = 'LIBRARIAN',
+    MEMBER = 'MEMBER'
+}
+
+export enum Permission {
+    // Treasury
+    TREASURY_VIEW = 'TREASURY_VIEW',
+    TREASURY_MANAGE = 'TREASURY_MANAGE',
+
+    // Members
+    MEMBERS_VIEW = 'MEMBERS_VIEW',
+    MEMBERS_MANAGE = 'MEMBERS_MANAGE',
+
+    // Counseling
+    COUNSELING_VIEW_OWN = 'COUNSELING_VIEW_OWN',
+    COUNSELING_MANAGE_ALL = 'COUNSELING_MANAGE_ALL',
+
+    // Groups & Ministries
+    GROUPS_VIEW = 'GROUPS_VIEW',
+    GROUPS_MANAGE = 'GROUPS_MANAGE',
+
+    // Library
+    LIBRARY_MANAGE = 'LIBRARY_MANAGE',
+
+    // System
+    SETTINGS_MANAGE = 'SETTINGS_MANAGE',
 }
 
 export enum MinistryRole {
@@ -71,10 +103,9 @@ export enum CounselingStatus {
 }
 
 export enum FollowUpStatus {
-    NEW = 'NEW',
-    ACTIVE = 'ACTIVE',
-    FINISHED = 'FINISHED',
-    HIDDEN = 'HIDDEN',
+    VISITOR = 'VISITOR',       // Visitante frecuente
+    PROSPECT = 'PROSPECT',     // Listo para membresía
+    ARCHIVED = 'ARCHIVED',     // Ya no viene más
 }
 
 export enum WeekDay {
@@ -153,7 +184,6 @@ export enum LoanStatus {
 export enum PrayerRequestStatus {
     WAITING = 'WAITING',
     ANSWERED = 'ANSWERED',
-    HIDDEN = 'HIDDEN',
     DELETED = 'DELETED',
 }
 

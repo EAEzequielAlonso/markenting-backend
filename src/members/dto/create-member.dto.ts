@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsOptional, IsString, IsArray, IsUUID } from 'class-validator';
-import { MembershipStatus, EcclesiasticalRole } from '../../common/enums';
+import { MembershipStatus, EcclesiasticalRole, FunctionalRole } from '../../common/enums';
 
 export class CreateMemberDto {
     @ApiProperty({ example: 'john@example.com', required: false })
@@ -28,10 +28,16 @@ export class CreateMemberDto {
     @IsOptional()
     status?: MembershipStatus;
 
-    @ApiProperty({ enum: EcclesiasticalRole, required: false, default: EcclesiasticalRole.NONE })
-    //@IsEnum(EcclesiasticalRole) // Disabled if validation is strict about the enum type
+    @ApiProperty({ enum: EcclesiasticalRole, default: EcclesiasticalRole.NONE })
+    @IsEnum(EcclesiasticalRole)
     @IsOptional()
     ecclesiasticalRole?: EcclesiasticalRole;
+
+    @ApiProperty({ enum: FunctionalRole, isArray: true, default: [FunctionalRole.MEMBER] })
+    @IsEnum(FunctionalRole, { each: true })
+    @IsOptional()
+    @IsArray()
+    functionalRoles?: FunctionalRole[];
 
     @ApiProperty({ example: '12345678', required: false })
     @IsString()

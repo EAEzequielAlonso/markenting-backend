@@ -9,7 +9,7 @@ import { DiscipleshipTask } from './entities/discipleship-task.entity';
 import { ChurchMember, ChurchMember as Member } from '../members/entities/church-member.entity';
 import { Church } from '../churches/entities/church.entity';
 import { CreateDiscipleshipDto, CreateMeetingDto, CreateNoteDto, CreateTaskDto } from './dto/create-discipleship.dto';
-import { DiscipleshipStatus, DiscipleshipRole, DiscipleshipNoteType, DiscipleshipTaskStatus, CalendarEventType } from '../common/enums';
+import { DiscipleshipStatus, DiscipleshipRole, DiscipleshipNoteType, DiscipleshipTaskStatus, CalendarEventType, SystemRole } from '../common/enums';
 import { AppPermission } from '../auth/authorization/permissions.enum';
 import { getPermissionsForRoles } from '../auth/authorization/role-permissions.config';
 import { CalendarEvent } from '../agenda/entities/calendar-event.entity';
@@ -130,7 +130,7 @@ export class DiscipleshipService {
             if (requester?.church.id !== discipleship.church.id) {
                 throw new ForbiddenException('No tienes acceso a este discipulado');
             }
-            if (requester.ecclesiasticalRole !== 'PASTOR' && !requester.person?.user?.isPlatformAdmin) {
+            if (requester.ecclesiasticalRole !== 'PASTOR' && requester.person?.user?.systemRole !== SystemRole.ADMIN_APP) {
                 throw new ForbiddenException('No tienes acceso a este discipulado');
             }
         }

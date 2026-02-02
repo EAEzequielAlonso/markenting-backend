@@ -17,10 +17,6 @@ export const ROLE_METADATA = {
         description: 'Usuario estándar del sistema.'
     },
     // Membership Status
-    [MembershipStatus.PROSPECT]: {
-        label: 'Candidato',
-        description: 'En proceso de membresía o discipulado inicial.'
-    },
     [MembershipStatus.MEMBER]: {
         label: 'Miembro',
         description: 'Miembro oficial en plena comunión.'
@@ -53,10 +49,6 @@ export const ROLE_METADATA = {
     [EcclesiasticalRole.DEACON]: {
         label: 'Diácono',
         description: 'Servidor ordenado para asistencia práctica.'
-    },
-    [EcclesiasticalRole.LEADER]: {
-        label: 'Líder',
-        description: 'Líder general de áreas o departamentos.'
     },
     [EcclesiasticalRole.NONE]: {
         label: 'Sin Cargo',

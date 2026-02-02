@@ -34,6 +34,18 @@ export class TreasuryService {
     }
 
     async deleteAccount(id: string) {
+        // Check for existing transactions
+        const hasTransactions = await this.txRepo.count({
+            where: [
+                { sourceAccount: { id } },
+                { destinationAccount: { id } }
+            ]
+        });
+
+        if (hasTransactions > 0) {
+            throw new BadRequestException('No se puede eliminar una cuenta con movimientos asociados. Archívela o elimine los movimientos primero.'); // Using BadRequest for clearer frontend handling, or ConflictException
+        }
+
         const result = await this.accountRepo.delete(id);
         if (result.affected === 0) throw new NotFoundException('Account not found');
         return { success: true };
@@ -56,7 +68,10 @@ export class TreasuryService {
 
     // --- Transactions (The Core) ---
     async createTransaction(data: any, churchId: string, userId: string) {
-        const { description, amount, currency, sourceAccountId, destinationAccountId, ministryId, date } = data;
+        let { description, amount, currency, sourceAccountId, destinationAccountId, ministryId, date } = data;
+
+        // Sanitize ministryId
+        if (ministryId === 'none' || ministryId === '') ministryId = null;
 
         // Start Transaction
         const queryRunner = this.dataSource.createQueryRunner();
@@ -101,20 +116,8 @@ export class TreasuryService {
 
             // 3. Update Balances
             if (status === TransactionStatus.COMPLETED) {
-                // Determine transaction type based on accounts
-                // EXPENSE: Asset -> Expense
-                // INCOME: Income -> Asset
-                // TRANSFER: Asset -> Asset
-
                 const rate = Number(tx.exchangeRate);
                 const amountInSourceCurrency = Number(amount);
-                // For simplified MVP, assuming amount is passed in Source Currency or handled via rate.
-                // Let's assume amount is ALWAYS in the currency of the transaction.
-                // If accounts have different currencies, we'd need complex conversion. 
-                // For now, let's assume single currency or amount applies to both (1:1) or user inputs correct value.
-                // "Ingresando tasa de conversion" -> Amount * Rate = Final Value? 
-                // Usually: Amount is in Source Currency. Rate converts it to Dest Currency?
-                // Let's keep it simple: deducted amount = amount. Added amount = amount * rate.
 
                 if (source.type === AccountType.ASSET) {
                     source.balance = Number(source.balance) - amountInSourceCurrency;
@@ -122,9 +125,6 @@ export class TreasuryService {
                 }
 
                 if (dest.type === AccountType.ASSET) {
-                    // If transfer/income to asset, apply exchange rate if exists
-                    // Example: Transfer 100 USD (Source) to ARS Account (Dest). Rate 1000.
-                    // Source -100. Dest + (100 * 1000).
                     const addedAmount = amountInSourceCurrency * (rate || 1);
                     dest.balance = Number(dest.balance) + addedAmount;
                     await queryRunner.manager.save(dest);
@@ -144,7 +144,7 @@ export class TreasuryService {
     }
 
     async updateTransaction(id: string, data: any, userId: string) {
-        const { description, amount } = data;
+        const { description, amount, sourceAccountId, destinationAccountId, ministryId } = data;
 
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
@@ -161,6 +161,10 @@ export class TreasuryService {
             const oldAmount = Number(tx.amount);
             const oldDescription = tx.description;
             const newAmount = Number(amount);
+
+            // Check if accounts changed
+            const accountsChanged = (sourceAccountId && sourceAccountId !== tx.sourceAccount.id) ||
+                (destinationAccountId && destinationAccountId !== tx.destinationAccount.id);
 
             // 1. Revert previous balance impact
             if (tx.status === TransactionStatus.COMPLETED) {
@@ -180,26 +184,44 @@ export class TreasuryService {
                 }
             }
 
-            // 2. Apply new balance impact (assuming accounts don't change for now, only amount/desc)
-            // If accounts change, we'd need to load new accounts here.
-            if (tx.status === TransactionStatus.COMPLETED) {
-                const source = tx.sourceAccount;
-                const dest = tx.destinationAccount;
-                const rate = Number(tx.exchangeRate); // Keeping same rate for now
+            // 2. Update fields
+            tx.amount = newAmount;
+            tx.description = description;
+            if (ministryId !== undefined) tx.ministry = ministryId ? { id: ministryId } as any : null;
 
-                if (source.type === AccountType.ASSET) {
-                    source.balance = Number(source.balance) - newAmount;
-                    await queryRunner.manager.save(source);
+            // If accounts changed, fetch new ones
+            let newSource = tx.sourceAccount;
+            let newDest = tx.destinationAccount;
+
+            if (sourceAccountId && sourceAccountId !== tx.sourceAccount.id) {
+                newSource = await this.accountRepo.findOneBy({ id: sourceAccountId });
+                if (!newSource) throw new NotFoundException('New Source account not found');
+                tx.sourceAccount = newSource;
+            }
+            if (destinationAccountId && destinationAccountId !== tx.destinationAccount.id) {
+                newDest = await this.accountRepo.findOneBy({ id: destinationAccountId });
+                if (!newDest) throw new NotFoundException('New Destination account not found');
+                tx.destinationAccount = newDest;
+            }
+
+
+            // 3. Apply new balance impact to (possibly new) accounts
+            if (tx.status === TransactionStatus.COMPLETED) {
+                const rate = Number(tx.exchangeRate); // Keeping same rate for now unless we add rate update logic
+
+                if (newSource.type === AccountType.ASSET) {
+                    newSource.balance = Number(newSource.balance) - newAmount;
+                    await queryRunner.manager.save(newSource);
                 }
 
-                if (dest.type === AccountType.ASSET) {
+                if (newDest.type === AccountType.ASSET) {
                     const addedAmount = newAmount * (rate || 1);
-                    dest.balance = Number(dest.balance) + addedAmount;
-                    await queryRunner.manager.save(dest);
+                    newDest.balance = Number(newDest.balance) + addedAmount;
+                    await queryRunner.manager.save(newDest);
                 }
             }
 
-            // 3. Save Record & Audit Log
+            // 4. Save Record & Audit Log
             const audit = this.auditRepo.create({
                 transaction: tx,
                 oldAmount,
@@ -207,17 +229,59 @@ export class TreasuryService {
                 oldDescription,
                 newDescription: description,
                 changedBy: { id: userId } as any,
-                changeReason: data.reason || 'Corrección de error'
+                changeReason: data.reason || 'Edición completa'
             });
-
-            tx.amount = newAmount;
-            tx.description = description;
 
             await queryRunner.manager.save(audit);
             await queryRunner.manager.save(tx);
             await queryRunner.commitTransaction();
 
             return tx;
+        } catch (err) {
+            await queryRunner.rollbackTransaction();
+            throw err;
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
+    async deleteTransaction(id: string, userId: string) {
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
+        try {
+            const tx = await this.txRepo.findOne({
+                where: { id },
+                relations: ['sourceAccount', 'destinationAccount']
+            });
+
+            if (!tx) throw new NotFoundException('Transaction not found');
+
+            // 1. Revert Balance Impact
+            if (tx.status === TransactionStatus.COMPLETED) {
+                const source = tx.sourceAccount;
+                const dest = tx.destinationAccount;
+                const oldAmount = Number(tx.amount);
+                const oldRate = Number(tx.exchangeRate);
+
+                if (source.type === AccountType.ASSET) {
+                    source.balance = Number(source.balance) + oldAmount;
+                    await queryRunner.manager.save(source);
+                }
+
+                if (dest.type === AccountType.ASSET) {
+                    const oldAddedAmount = oldAmount * (oldRate || 1);
+                    dest.balance = Number(dest.balance) - oldAddedAmount;
+                    await queryRunner.manager.save(dest);
+                }
+            }
+
+            // 2. Delete
+            await queryRunner.manager.remove(tx);
+            await queryRunner.commitTransaction();
+            return { success: true };
+
         } catch (err) {
             await queryRunner.rollbackTransaction();
             throw err;
@@ -244,11 +308,15 @@ export class TreasuryService {
 
     // --- Budgets ---
     async createBudget(data: any, churchId: string) {
+        if (!data.ministryId && !data.categoryId) {
+            throw new BadRequestException('El presupuesto debe estar asociado a un Ministerio o a una Categoría.');
+        }
+
         const budget = this.budgetRepo.create({
             ...data,
             church: { id: churchId },
-            ministry: { id: data.ministryId },
-            category: { id: data.categoryId }
+            ministry: data.ministryId ? { id: data.ministryId } : null,
+            category: data.categoryId ? { id: data.categoryId } : null
         });
         return this.budgetRepo.save(budget);
     }

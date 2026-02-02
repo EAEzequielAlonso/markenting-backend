@@ -1,9 +1,9 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { SystemRole, FunctionalRole } from '../../common/enums';
 import { AppPermission } from '../authorization/permissions.enum';
-import { getPermissionsForRoles, ROLE_PERMISSIONS } from '../authorization/role-permissions.config';
-import { PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
-import { SystemRole } from '../../common/enums';
+import { RolePermissions } from '../role-permissions';
+import { PERMISSIONS_KEY } from '../decorators/require-permission.decorator';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -16,13 +16,13 @@ export class PermissionsGuard implements CanActivate {
         ]);
 
         if (!requiredPermissions) {
-            return true; // No permissions required, allow access
+            return true; // No permissions required
         }
 
         const { user } = context.switchToHttp().getRequest();
 
         if (!user) {
-            return false; // No user logged in
+            return false;
         }
 
         // 1. Super Admin Bypass
@@ -30,21 +30,23 @@ export class PermissionsGuard implements CanActivate {
             return true;
         }
 
-        // Let's rely on the roles array attached to the user from the JWT Strategy.
-        const userRoles = user.roles || [];
+        // 2. Derive Permissions from Functional Roles
+        // User roles in JWT are now FunctionalRoles
+        const userFunctionalRoles = (user.roles || []) as FunctionalRole[];
 
-        // If user object has systemRole property (it should if mapped correctly in strategy)
-        // We'll add it to the effective roles for permission calculation
-        /* 
-           NOTE: In AuthService.login, we didn't explicitly add systemRole to the 'roles' array in the payload,
-           but we did select it. We might need to ensure the JWT Strategy includes 'systemRole' in the user object.
-           Let's assume user.roles is the array of strings we put in JWT.
-        */
+        // Flatten all permissions from all roles
+        const userPermissions = new Set<AppPermission>();
 
-        const userPermissions = getPermissionsForRoles(userRoles);
+        userFunctionalRoles.forEach(role => {
+            const rolePerms = RolePermissions[role];
+            if (rolePerms) {
+                rolePerms.forEach(p => userPermissions.add(p));
+            }
+        });
 
+        // 3. Check if user has ALL required permissions
         const hasPermission = requiredPermissions.every((permission) =>
-            userPermissions.includes(permission),
+            userPermissions.has(permission),
         );
 
         if (!hasPermission) {

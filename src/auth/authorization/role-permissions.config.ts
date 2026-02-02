@@ -68,16 +68,6 @@ export const ROLE_PERMISSIONS: Record<string, AppPermission[]> = {
         AppPermission.GROUP_VIEW,
     ],
 
-    [EcclesiasticalRole.LEADER]: [
-        AppPermission.MEMBER_VIEW,
-        AppPermission.GROUP_VIEW,
-        AppPermission.MINISTRY_VIEW,
-        AppPermission.LIBRARY_VIEW,
-        AppPermission.PRAYER_CREATE,
-        AppPermission.COUNSELING_CREATE,
-        AppPermission.AGENDA_CREATE_MINISTRY,
-    ],
-
     // --- Ministry Roles ---
     // These are usually additive. 
     // E.g. A member who is a Ministry LEADER might get extra permissions for that ministry context,

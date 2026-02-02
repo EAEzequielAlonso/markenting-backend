@@ -62,7 +62,7 @@ export class DashboardService {
         const newVisitorsCount = await this.followUpRepository.count({
             where: {
                 church: { id: churchId },
-                status: FollowUpStatus.ACTIVE
+                status: FollowUpStatus.VISITOR
             }
         });
 

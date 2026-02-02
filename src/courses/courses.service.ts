@@ -63,7 +63,10 @@ export class CoursesService {
     }
 
     async findAll(memberId: string, roles: string[], type?: ProgramType) {
-        const isAdminOrPastor = roles.includes('ADMIN_APP') || roles.includes('PASTOR');
+        const isAdminOrPastor = roles.includes('ADMIN_APP') ||
+            roles.includes('PASTOR') ||
+            roles.includes('ADMIN_CHURCH') ||
+            roles.includes('MINISTRY_LEADER');
 
         const member = await this.memberRep.findOne({ where: { id: memberId }, relations: ['church'] });
         if (!member) throw new NotFoundException('Miembro no encontrado');

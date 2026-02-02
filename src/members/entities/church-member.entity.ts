@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Person } from '../../users/entities/person.entity';
 import { Church } from '../../churches/entities/church.entity';
-import { MembershipStatus, EcclesiasticalRole } from '../../common/enums';
+import { MembershipStatus, EcclesiasticalRole, FunctionalRole } from '../../common/enums';
 import { MinistryMember } from '../../ministries/entities/ministry-member.entity';
 
 @Entity('church_members')
@@ -18,7 +18,7 @@ export class ChurchMember {
     @Column({
         type: 'enum',
         enum: MembershipStatus,
-        default: MembershipStatus.PROSPECT
+        default: MembershipStatus.MEMBER
     })
     status: MembershipStatus;
 
@@ -27,21 +27,15 @@ export class ChurchMember {
         enum: EcclesiasticalRole,
         default: EcclesiasticalRole.NONE
     })
-    roles: EcclesiasticalRole; // Renaming to 'roles' typographically but storing single enum for hierarchy? Or should it be an array?
-    // Specification said "Enum: EcclesiasticalRole". Usually roles are single hierarchy in this context (e.g. you are either a Pastor OR an Elder, or maybe both?)
-    // "Usa Postgres ENUMS para todas las columnas de rol".
-    // If multiple roles are needed, Postgres supports array of enums.
-    // However, the prompt implies "EcclesiasticalRole (La jerarquía)". Hierarchy usually implies single rank.
-    // Let's assume single role for simplicity and hierarchy. If multiple needed, we can change to array.
-    // Wait, the specification says: "EcclesiasticalRole (La jerarquía)... NONE (Default)".
-    // I'll stick to a single column 'ecclesiasticalRole' for clarity.
+    ecclesiasticalRole: EcclesiasticalRole;
 
     @Column({
         type: 'enum',
-        enum: EcclesiasticalRole,
-        default: EcclesiasticalRole.NONE
+        enum: FunctionalRole,
+        array: true,
+        default: [FunctionalRole.MEMBER]
     })
-    ecclesiasticalRole: EcclesiasticalRole;
+    functionalRoles: FunctionalRole[];
 
     @Column({ default: false })
     isAuthorizedCounselor: boolean;
