@@ -26,4 +26,8 @@ export class CreateSmallGroupDto {
     @IsString()
     @IsOptional()
     leaderId?: string;
+
+    @ApiProperty({ example: true })
+    @IsOptional()
+    openEnrollment?: boolean;
 }

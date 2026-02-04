@@ -2,6 +2,8 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDat
 import { Church } from '../../churches/entities/church.entity';
 import { SmallGroupMember } from './small-group-member.entity';
 import { CalendarEvent } from '../../agenda/entities/calendar-event.entity';
+import { SmallGroupGuest } from './small-group-guest.entity';
+import { SmallGroupStatus } from '../../common/enums';
 
 @Entity('small_groups')
 export class SmallGroup {
@@ -32,11 +34,24 @@ export class SmallGroup {
     @Column({ nullable: true })
     address: string; // Default location
 
+    @Column({ default: false })
+    openEnrollment: boolean;
+
+    @Column({
+        type: 'enum',
+        enum: SmallGroupStatus,
+        default: SmallGroupStatus.ACTIVE
+    })
+    status: SmallGroupStatus;
+
     @ManyToOne(() => Church, (church) => church.smallGroups)
     church: Church;
 
     @OneToMany(() => SmallGroupMember, (member) => member.group)
     members: SmallGroupMember[];
+
+    @OneToMany(() => SmallGroupGuest, (guest) => guest.group)
+    guests: SmallGroupGuest[];
 
     @OneToMany(() => CalendarEvent, (event) => event.smallGroup)
     events: CalendarEvent[];

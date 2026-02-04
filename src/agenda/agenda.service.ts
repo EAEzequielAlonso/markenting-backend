@@ -10,8 +10,11 @@ import { Person } from '../users/entities/person.entity';
 import { Ministry } from '../ministries/entities/ministry.entity';
 import { SmallGroupMember } from '../small-groups/entities/small-group-member.entity';
 import { SmallGroup } from '../small-groups/entities/small-group.entity';
+import { SmallGroupGuest } from '../small-groups/entities/small-group-guest.entity';
 import { MinistryRoleAssignment } from '../ministries/entities/ministry-role-assignment.entity';
 import { CreateCalendarEventDto } from './dto/create-calendar-event.dto';
+import { FollowUpPerson } from '../follow-ups/entities/follow-up-person.entity';
+import { PersonInvited } from '../courses/entities/person-invited.entity';
 
 @Injectable()
 export class AgendaService {
@@ -34,6 +37,12 @@ export class AgendaService {
         private readonly smallGroupRepository: Repository<SmallGroup>,
         @InjectRepository(MinistryRoleAssignment)
         private readonly assignmentRepository: Repository<MinistryRoleAssignment>,
+        @InjectRepository(FollowUpPerson)
+        private readonly followUpRepository: Repository<FollowUpPerson>,
+        @InjectRepository(PersonInvited)
+        private readonly invitedRepository: Repository<PersonInvited>,
+        @InjectRepository(SmallGroupGuest)
+        private readonly guestRepository: Repository<SmallGroupGuest>,
     ) { }
 
     async getUpcomingActivities(personId: string, memberId?: string, churchId?: string) {
@@ -219,6 +228,7 @@ export class AgendaService {
         personId: string,
         churchId: string,
         permissions: string[], // AppPermission[]
+        roles: string[],
         memberId?: string
     ) {
         const {
@@ -244,14 +254,14 @@ export class AgendaService {
             event.organizer = await this.personRepository.findOne({ where: { id: personId } });
         } else if (type === CalendarEventType.CHURCH) {
             // Check Capability
-            if (!permissions.includes('AGENDA_CREATE_CHURCH')) {
+            if (!permissions.includes('AGENDA_CREATE_CHURCH') && !roles.includes('ADMIN_CHURCH')) {
                 throw new ForbiddenException('No tienes permiso para crear eventos de iglesia');
             }
         } else if (type === CalendarEventType.MINISTRY) {
             if (!ministryId) throw new ForbiddenException('Ministry ID required');
 
             // Check Capability
-            if (!permissions.includes('AGENDA_CREATE_MINISTRY')) {
+            if (!permissions.includes('AGENDA_CREATE_MINISTRY') && !roles.includes('ADMIN_CHURCH')) {
                 throw new ForbiddenException('No tienes permiso para gestionar eventos de ministerio');
             }
 
@@ -267,7 +277,7 @@ export class AgendaService {
             // If you have CHURCH_MANAGE or AGENDA_CREATE_CHURCH, you likely can override.
             // But let's verify specific ministry leadership for standard leaders.
 
-            const hasGlobalOverride = permissions.includes('AGENDA_CREATE_CHURCH'); // Pastors/Admins have this
+            const hasGlobalOverride = permissions.includes('AGENDA_CREATE_CHURCH') || roles.includes('ADMIN_CHURCH');
 
             if (!hasGlobalOverride) {
                 // Check if leader of this specific ministry
@@ -297,7 +307,7 @@ export class AgendaService {
             // Permission Check: Must be MODERATOR of the group
             let isModerator = false;
             // Global override? Maybe CHURCH_MANAGE
-            const hasGlobalOverride = permissions.includes('AGENDA_CREATE_CHURCH');
+            const hasGlobalOverride = permissions.includes('AGENDA_CREATE_CHURCH') || roles.includes('ADMIN_CHURCH');
 
             if (!hasGlobalOverride) {
                 if (memberId) {
@@ -350,16 +360,157 @@ export class AgendaService {
             relations: ['attendees']
         });
 
-        if (!event) throw new Error('Evento no encontrado');
+        if (!event) throw new NotFoundException('Evento no encontrado');
 
-        // Fetch persons
-        const attendees: Person[] = [];
-        if (personIds.length > 0) {
-            // Use query builder to fetch by IDs
-            attendees.push(...await this.personRepository.findBy({ id: In(personIds) }));
+        const attendeesMap = new Map<string, Person>();
+
+        for (const id of personIds) {
+            // 1. Try to find directly as Person
+            let person = await this.personRepository.findOne({ where: { id } });
+
+            if (!person) {
+                // 2. Try to find as FollowUpPerson (Visitor)
+                const followUp = await this.followUpRepository.findOne({
+                    where: { id },
+                    relations: ['personInvited']
+                });
+
+                if (followUp) {
+                    person = await this.resolvePersonForVisitor(followUp);
+                } else {
+                    // 3. Try to find as PersonInvited (Guest)
+                    const invited = await this.invitedRepository.findOne({ where: { id } });
+                    if (invited) {
+                        person = await this.ensurePersonForInvited(invited);
+                    } else {
+                        // 4. Try to find as SmallGroupGuest
+                        const guest = await this.guestRepository.findOne({
+                            where: { id },
+                            relations: ['followUpPerson', 'personInvited']
+                        });
+
+                        if (guest) {
+                            if (guest.followUpPerson) {
+                                person = await this.resolvePersonForVisitor(guest.followUpPerson);
+                            } else if (guest.personInvited) {
+                                person = await this.ensurePersonForInvited(guest.personInvited);
+                            } else {
+                                // Pure guest: Create a shadow PersonInvited
+                                const nameParts = guest.fullName.split(' ');
+                                const firstName = nameParts[0] || 'Invitado';
+                                const lastName = nameParts.slice(1).join(' ') || '';
+
+                                const newInvited = this.invitedRepository.create({
+                                    firstName,
+                                    lastName,
+                                    email: guest.email,
+                                    phone: guest.phone
+                                });
+                                const savedInvited = await this.invitedRepository.save(newInvited);
+
+                                guest.personInvited = savedInvited;
+                                await this.guestRepository.save(guest);
+
+                                person = await this.ensurePersonForInvited(savedInvited);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (person) {
+                attendeesMap.set(person.id, person);
+            }
         }
 
-        event.attendees = attendees;
+        event.attendees = Array.from(attendeesMap.values());
         return this.eventRepository.save(event);
+    }
+
+    private async resolvePersonForVisitor(followUp: FollowUpPerson): Promise<Person> {
+        if (!followUp.personInvited) {
+            const invited = this.invitedRepository.create({
+                firstName: followUp.firstName,
+                lastName: followUp.lastName,
+                email: followUp.email,
+                phone: followUp.phone
+            });
+            followUp.personInvited = await this.invitedRepository.save(invited);
+            await this.followUpRepository.save(followUp);
+        }
+        return this.ensurePersonForInvited(followUp.personInvited);
+    }
+
+    async updateEvent(id: string, updateDto: any, personId: string, roles: string[]) {
+        const event = await this.eventRepository.findOne({
+            where: { id },
+            relations: ['organizer', 'smallGroup', 'ministry', 'attendees']
+        });
+
+        if (!event) throw new NotFoundException('Evento no encontrado');
+
+        // Basic permission check: Admin or Organizer
+        const isAdmin = roles.includes('ADMIN_CHURCH');
+        const isOrganizer = event.organizer?.id === personId;
+
+        // If it's a small group event, we might want to check for moderator too, 
+        // but for now let's keep it simple (Admin/Organizer). 
+        // Most group meetings in this system are created by the leader (organizer).
+
+        if (!isAdmin && !isOrganizer) {
+            throw new ForbiddenException('No tienes permiso para editar este evento');
+        }
+
+        // Map fields
+        if (updateDto.title) event.title = updateDto.title;
+        if (updateDto.description !== undefined) event.description = updateDto.description;
+        if (updateDto.location !== undefined) event.location = updateDto.location;
+        if (updateDto.startDate) event.startDate = new Date(updateDto.startDate);
+        if (updateDto.endDate) event.endDate = new Date(updateDto.endDate);
+        if (updateDto.color) event.color = updateDto.color;
+        if (updateDto.isAllDay !== undefined) event.isAllDay = updateDto.isAllDay;
+
+        return this.eventRepository.save(event);
+    }
+
+    async deleteEvent(id: string, personId: string, roles: string[]) {
+        const event = await this.eventRepository.findOne({
+            where: { id },
+            relations: ['organizer']
+        });
+
+        if (!event) throw new NotFoundException('Evento no encontrado');
+
+        const isAdmin = roles.includes('ADMIN_CHURCH');
+        const isOrganizer = event.organizer?.id === personId;
+
+        if (!isAdmin && !isOrganizer) {
+            throw new ForbiddenException('No tienes permiso para eliminar este evento');
+        }
+
+        return this.eventRepository.remove(event);
+    }
+
+    private async ensurePersonForInvited(invited: PersonInvited): Promise<Person> {
+        // Check if already has a shadow person
+        let person = await this.personRepository.findOne({
+            where: { personInvited: { id: invited.id } }
+        });
+
+        if (!person) {
+            // Create a minimal Person record to track attendance/UI
+            person = this.personRepository.create({
+                firstName: invited.firstName,
+                lastName: invited.lastName,
+                fullName: `${invited.firstName} ${invited.lastName}`.trim(),
+                email: invited.email,
+                phoneNumber: invited.phone,
+                personInvited: invited,
+                isActive: true
+            });
+            person = await this.personRepository.save(person);
+        }
+
+        return person;
     }
 }

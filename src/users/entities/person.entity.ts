@@ -1,9 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, OneToMany, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
 import { ChurchMember } from '../../members/entities/church-member.entity';
 import { Notification } from '../../notifications/entities/notification.entity';
 
 import { MaritalStatus, Sex } from 'src/common/enums';
+import { PersonInvited } from '../../courses/entities/person-invited.entity';
 
 @Entity('persons')
 export class Person {
@@ -97,6 +98,10 @@ export class Person {
 
   @OneToMany(() => Notification, (notification) => notification.person)
   notifications: Notification[];
+
+  @OneToOne(() => PersonInvited, { nullable: true })
+  @JoinColumn({ name: 'person_invited_id' })
+  personInvited: PersonInvited;
 
 
 

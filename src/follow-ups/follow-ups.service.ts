@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not } from 'typeorm';
 import { FollowUpPerson } from './entities/follow-up-person.entity';
@@ -7,11 +7,14 @@ import { FollowUpStatus } from '../common/enums';
 import { AppPermission } from '../auth/authorization/permissions.enum';
 import { getPermissionsForRoles } from '../auth/authorization/role-permissions.config';
 
+import { MembersService } from '../members/members.service'; // Import first
+
 @Injectable()
 export class FollowUpsService {
     constructor(
         @InjectRepository(FollowUpPerson) private personRepo: Repository<FollowUpPerson>,
         @InjectRepository(ChurchMember) private memberRepo: Repository<ChurchMember>,
+        private membersService: MembersService
     ) { }
 
     async create(churchId: string, creatorMemberId: string, data: { firstName: string, lastName: string, phone?: string, email?: string, firstVisitDate?: Date }) {
@@ -24,7 +27,7 @@ export class FollowUpsService {
         return this.personRepo.save(person);
     }
 
-    async findAll(churchId: string, viewerMemberId: string, viewerRoles: string[], statusFilter?: FollowUpStatus) {
+    async findAll(churchId: string, viewerMemberId: string, viewerRoles: string[], statusFilter?: string) {
         const permissions = getPermissionsForRoles(viewerRoles);
         // We can define a specific permission 'FOLLOW_UP_VIEW_ALL' or reuse an existing moderate role checks.
         // Usually Pastors/Admins/Deacons can view all.
@@ -35,7 +38,7 @@ export class FollowUpsService {
         // Pastor/Admin/Diacono: View All
         // Member: View Assigned only
 
-        const canViewAll = permissions.includes(AppPermission.MEMBER_VIEW) || viewerRoles.includes('PASTOR') || viewerRoles.includes('ADMIN_APP') || viewerRoles.includes('DEACON');
+        const canViewAll = permissions.includes(AppPermission.MEMBER_VIEW) || viewerRoles.includes('PASTOR') || viewerRoles.includes('ADMIN_APP') || viewerRoles.includes('DEACON') || viewerRoles.includes('ADMIN_CHURCH');
         // Note: MEMBERS_VIEW is a proxy. Ideally we have specific perm.
 
         const query = this.personRepo.createQueryBuilder('fp')
@@ -45,7 +48,10 @@ export class FollowUpsService {
             .orderBy('fp.createdAt', 'DESC');
 
         if (statusFilter) {
-            query.andWhere('fp.status = :status', { status: statusFilter });
+            const statuses = statusFilter.split(',').map(s => s.trim());
+            if (statuses.length > 0) {
+                query.andWhere('fp.status IN (:...statuses)', { statuses });
+            }
         } else {
             // Default: Hide HIDDEN unless specifically asked? 
             // Or if user is Admin, maybe show all ACTIVE/FINISHED by default?
@@ -63,6 +69,31 @@ export class FollowUpsService {
         }
 
         return query.getMany();
+    }
+
+    async search(churchId: string, queryStr: string) {
+        // If empty query, return recent 15
+        if (!queryStr) {
+            return this.personRepo.createQueryBuilder('fp')
+                .leftJoinAndSelect('fp.assignedMember', 'am')
+                .leftJoinAndSelect('am.person', 'amp')
+                .leftJoinAndSelect('fp.convertedMember', 'cm')
+                .where('fp.churchId = :churchId', { churchId })
+                .andWhere('cm.id IS NULL')
+                .orderBy('fp.createdAt', 'DESC')
+                .limit(15)
+                .getMany();
+        }
+
+        return this.personRepo.createQueryBuilder('fp')
+            .leftJoinAndSelect('fp.assignedMember', 'am')
+            .leftJoinAndSelect('am.person', 'amp')
+            .leftJoinAndSelect('fp.convertedMember', 'cm')
+            .where('fp.churchId = :churchId', { churchId })
+            .andWhere('cm.id IS NULL')
+            .andWhere('(LOWER(fp.firstName) LIKE :q OR LOWER(fp.lastName) LIKE :q OR LOWER(fp.email) LIKE :q)', { q: `%${queryStr.toLowerCase()}%` })
+            .limit(20)
+            .getMany();
     }
 
     async assignMember(personId: string, memberId: string | null, actorRoles: string[]) {
@@ -94,6 +125,16 @@ export class FollowUpsService {
         return this.personRepo.save(person);
     }
 
+    async update(personId: string, data: Partial<FollowUpPerson>, actorRoles: string[]) {
+        if (!this.canManage(actorRoles)) throw new ForbiddenException('No tienes permisos para editar.');
+
+        const person = await this.personRepo.findOne({ where: { id: personId } });
+        if (!person) throw new NotFoundException('Persona no encontrada');
+
+        Object.assign(person, data);
+        return this.personRepo.save(person);
+    }
+
     async remove(personId: string, actorRoles: string[]) {
         // Only Admin/Pastor/Deacon
         if (!this.canManage(actorRoles)) throw new ForbiddenException('No tienes permisos para eliminar.');
@@ -106,5 +147,29 @@ export class FollowUpsService {
 
     private canManage(roles: string[]): boolean {
         return roles.includes('PASTOR') || roles.includes('ADMIN_APP') || roles.includes('DEACON') || roles.includes('ADMIN_CHURCH');
+    }
+
+    async promoteToMember(personId: string, actorRoles: string[]) {
+        if (!this.canManage(actorRoles)) {
+            throw new ForbiddenException('No tienes permisos para promover a miembro');
+        }
+
+        const visitor = await this.personRepo.findOne({ where: { id: personId }, relations: ['church', 'convertedMember'] });
+        if (!visitor) throw new NotFoundException('Visitante no encontrado');
+
+        if (visitor.convertedMember) {
+            throw new ConflictException('Este visitante ya fue promovido a miembro');
+        }
+
+        // 1. Create Member via MembersService
+        const newMember = await this.membersService.createFromVisitor(visitor, visitor.church.id);
+
+        // 2. Link & Archive Visitor
+        visitor.convertedMember = newMember;
+        visitor.status = FollowUpStatus.ARCHIVED; // Mark as done/archived
+
+        await this.personRepo.save(visitor);
+
+        return newMember;
     }
 }

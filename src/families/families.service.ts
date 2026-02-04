@@ -150,4 +150,15 @@ export class FamiliesService {
         if (!fm) throw new NotFoundException('Member not found in family');
         return this.familyMemberRepository.remove(fm);
     }
+
+    async findByMember(memberId: string) {
+        const membership = await this.familyMemberRepository.findOne({
+            where: { member: { id: memberId } },
+            relations: ['family']
+        });
+
+        if (!membership) return null;
+
+        return this.findOne(membership.family.id);
+    }
 }

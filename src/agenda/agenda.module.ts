@@ -14,12 +14,19 @@ import { CalendarEvent } from './entities/calendar-event.entity';
 import { Ministry } from '../ministries/entities/ministry.entity';
 import { SmallGroup } from '../small-groups/entities/small-group.entity';
 import { SmallGroupMember } from '../small-groups/entities/small-group-member.entity';
+import { SmallGroupGuest } from '../small-groups/entities/small-group-guest.entity';
 
 import { MinistryRoleAssignment } from '../ministries/entities/ministry-role-assignment.entity';
+import { FollowUpPerson } from '../follow-ups/entities/follow-up-person.entity';
+import { PersonInvited } from '../courses/entities/person-invited.entity';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([CareSession, CareTask, ChurchMember, CareProcess, CareParticipant, Person, CalendarEvent, Ministry, SmallGroup, SmallGroupMember, MinistryRoleAssignment]),
+        TypeOrmModule.forFeature([
+            CareSession, CareTask, ChurchMember, CareProcess, CareParticipant,
+            Person, CalendarEvent, Ministry, SmallGroup, SmallGroupMember,
+            MinistryRoleAssignment, FollowUpPerson, PersonInvited, SmallGroupGuest
+        ]),
     ],
     controllers: [AgendaController],
     providers: [AgendaService],

@@ -92,6 +92,12 @@ export enum FamilyRole {
     CHILD = 'CHILD'
 }
 
+export enum SmallGroupStatus {
+    ACTIVE = 'ACTIVE',
+    SUSPENDED = 'SUSPENDED',
+    FINISHED = 'FINISHED'
+}
+
 export enum TransactionType {
     INCOME = 'INCOME',
     EXPENSE = 'EXPENSE',
@@ -239,6 +245,7 @@ export enum DiscipleshipTaskStatus {
 export enum CourseStatus {
     DRAFT = 'DRAFT',
     ACTIVE = 'ACTIVE',
+    SUSPENDED = 'SUSPENDED',
     COMPLETED = 'COMPLETED',
 }
 

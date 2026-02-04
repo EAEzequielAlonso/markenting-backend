@@ -19,6 +19,12 @@ export class FamiliesController {
         return this.familiesService.findAll(req.user.churchId);
     }
 
+    @Get('my-family')
+    findMyFamily(@Request() req) {
+        if (!req.user.memberId) return null;
+        return this.familiesService.findByMember(req.user.memberId);
+    }
+
     @Get(':id')
     findOne(@Param('id') id: string) {
         return this.familiesService.findOne(id);

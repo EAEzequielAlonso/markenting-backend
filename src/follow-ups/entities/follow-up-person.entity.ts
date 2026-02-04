@@ -1,7 +1,8 @@
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToOne } from 'typeorm';
 import { Church } from '../../churches/entities/church.entity';
 import { ChurchMember } from '../../members/entities/church-member.entity';
 import { FollowUpStatus } from '../../common/enums';
+import { PersonInvited } from '../../courses/entities/person-invited.entity';
 
 @Entity('follow_up_people')
 export class FollowUpPerson {
@@ -40,6 +41,14 @@ export class FollowUpPerson {
 
     @Column({ nullable: true })
     createdByMemberId: string;
+
+    @OneToOne(() => PersonInvited, { nullable: true })
+    @JoinColumn({ name: 'person_invited_id' })
+    personInvited: PersonInvited;
+
+    @OneToOne(() => ChurchMember, { nullable: true })
+    @JoinColumn({ name: 'converted_member_id' })
+    convertedMember: ChurchMember;
 
     @CreateDateColumn()
     createdAt: Date;

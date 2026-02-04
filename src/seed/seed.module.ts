@@ -20,6 +20,8 @@ import { CareNote } from '../counseling/entities/care-note.entity';
 import { CareSession } from '../counseling/entities/care-session.entity';
 import { Book } from '../library/entities/book.entity';
 import { Loan } from '../library/entities/loan.entity';
+import { FollowUpPerson } from 'src/follow-ups/entities/follow-up-person.entity';
+import { PersonInvited } from 'src/courses/entities/person-invited.entity';
 
 @Module({
   imports: [
@@ -39,7 +41,9 @@ import { Loan } from '../library/entities/loan.entity';
       CareNote,
       CareSession,
       Book,
-      Loan
+      Loan,
+      PersonInvited,
+      FollowUpPerson
     ])
   ],
   controllers: [SeedController],

@@ -13,10 +13,11 @@ export class CoursesController {
     private checkCanManage(roles: string[], ecclesiasticalRole?: string) {
         const isSystemAdmin = roles.includes(SystemRole.ADMIN_APP);
         const isChurchAdmin = roles.includes(FunctionalRole.ADMIN_CHURCH);
+        const isAuditor = roles.includes(FunctionalRole.AUDITOR);
         const isMinistryLeader = roles.includes(FunctionalRole.MINISTRY_LEADER);
         const isPastor = ecclesiasticalRole === EcclesiasticalRole.PASTOR;
 
-        if (!isSystemAdmin && !isChurchAdmin && !isPastor && !isMinistryLeader) {
+        if (!isSystemAdmin && !isChurchAdmin && !isAuditor && !isPastor && !isMinistryLeader) {
             throw new ForbiddenException('No tiene permisos para gestionar cursos o actividades');
         }
     }
@@ -72,6 +73,18 @@ export class CoursesController {
         return this.coursesService.addParticipant(id, dto);
     }
 
+    @Post(':id/join')
+    join(@Param('id') id: string, @Body() body: { memberIds: string[] }, @Request() req) {
+        if (!req.user.memberId) throw new UnauthorizedException('Usuario no vinculado a miembro');
+        return this.coursesService.joinCourse(id, body.memberIds, req.user.memberId);
+    }
+
+    @Post(':id/leave')
+    leave(@Param('id') id: string, @Request() req) {
+        if (!req.user.memberId) throw new UnauthorizedException('Usuario no vinculado a miembro');
+        return this.coursesService.leaveCourse(id, req.user.memberId);
+    }
+
     @Delete('participants/:participantId')
     removeParticipant(@Param('participantId') participantId: string, @Request() req) {
         this.checkCanManage(req.user.roles || [], req.user.ecclesiasticalRole);
@@ -96,6 +109,20 @@ export class CoursesController {
         return this.coursesService.updateGuest(guestId, dto);
     }
 
+    @Post('guests/:guestId/promote-to-visitor')
+    promoteGuest(@Param('guestId') guestId: string, @Request() req) {
+        if (!req.user.memberId) throw new UnauthorizedException('Usuario no vinculado a miembro');
+        this.checkCanManage(req.user.roles || [], req.user.ecclesiasticalRole);
+        return this.coursesService.promoteGuestToVisitor(guestId, req.user.memberId);
+    }
+
+    @Post('guests/:guestId/promote-to-member')
+    promoteGuestToMember(@Param('guestId') guestId: string, @Request() req) {
+        if (!req.user.memberId) throw new UnauthorizedException('Usuario no vinculado a miembro');
+        this.checkCanManage(req.user.roles || [], req.user.ecclesiasticalRole);
+        return this.coursesService.promoteGuestToMember(guestId);
+    }
+
     // --- ATTENDANCE ---
 
     @Post('sessions/:id/attendance')
@@ -114,6 +141,12 @@ export class CoursesController {
     @Roles(EcclesiasticalRole.PASTOR, FunctionalRole.MINISTRY_LEADER)
     getAttendance(@Param('id') sessionId: string) {
         return this.coursesService.getAttendance(sessionId);
+    }
+
+    @Get('search/invited')
+    searchInvited(@Query('q') q: string, @Request() req) {
+        this.checkCanManage(req.user.roles || [], req.user.ecclesiasticalRole);
+        return this.coursesService.searchInvited(q, req.user.churchId);
     }
 
     @Patch('sessions/:sessionId')

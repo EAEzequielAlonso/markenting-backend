@@ -2,6 +2,8 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDa
 import { Course } from './course.entity';
 import { Contact } from '../../contacts/entities/contact.entity';
 import { ChurchMember } from '../../members/entities/church-member.entity';
+import { FollowUpPerson } from '../../follow-ups/entities/follow-up-person.entity';
+import { PersonInvited } from './person-invited.entity';
 
 @Entity('course_guests')
 export class CourseGuest {
@@ -33,6 +35,15 @@ export class CourseGuest {
     @JoinColumn({ name: 'converted_to_member_id' })
     convertedToMember: ChurchMember;
 
+    // Link to Centralized FollowUp (Visitor)
+    @ManyToOne(() => FollowUpPerson, { nullable: true })
+    @JoinColumn({ name: 'follow_up_person_id' })
+    followUpPerson: FollowUpPerson;
+
     @CreateDateColumn()
     addedAt: Date;
+
+    @ManyToOne(() => PersonInvited, { nullable: true })
+    @JoinColumn({ name: 'person_invited_id' })
+    personInvited: PersonInvited;
 }

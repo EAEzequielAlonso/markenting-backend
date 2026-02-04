@@ -23,7 +23,9 @@ import { CareNote } from '../counseling/entities/care-note.entity';
 import { CareSession } from '../counseling/entities/care-session.entity';
 import { Book } from '../library/entities/book.entity';
 import { Loan } from '../library/entities/loan.entity';
-import { PlanType, SubscriptionStatus, MembershipStatus, EcclesiasticalRole, FunctionalRole, SystemRole, Sex, MaritalStatus, SmallGroupRole, FamilyRole, TransactionType, AccountType, CareProcessType, CareProcessStatus, CareParticipantRole, CareNoteVisibility } from '../common/enums';
+import { FollowUpPerson } from '../follow-ups/entities/follow-up-person.entity';
+import { PersonInvited } from '../courses/entities/person-invited.entity';
+import { PlanType, SubscriptionStatus, MembershipStatus, EcclesiasticalRole, FunctionalRole, SystemRole, Sex, MaritalStatus, SmallGroupRole, FamilyRole, TransactionType, AccountType, CareProcessType, CareProcessStatus, CareParticipantRole, CareNoteVisibility, FollowUpStatus } from '../common/enums';
 import { BookOwnershipType, BookStatus, LoanStatus } from '../common/enums/library.enums';
 
 @Injectable()
@@ -47,6 +49,8 @@ export class SeedService {
         @InjectRepository(CareNote) private careNoteRepository: Repository<CareNote>,
         @InjectRepository(Book) private bookRepository: Repository<Book>,
         @InjectRepository(Loan) private loanRepository: Repository<Loan>,
+        @InjectRepository(FollowUpPerson) private followUpRepository: Repository<FollowUpPerson>,
+        @InjectRepository(PersonInvited) private invitedRepository: Repository<PersonInvited>,
     ) { }
 
     async run() {
@@ -431,6 +435,7 @@ export class SeedService {
                             meetingDay: groupData.meetingDay,
                             meetingTime: groupData.meetingTime,
                             address: groupData.address,
+                            openEnrollment: groupData.openEnrollment || false,
                             church: savedChurch
                         });
                         savedGroup = await queryRunner.manager.save(group);
@@ -464,6 +469,63 @@ export class SeedService {
                         }
                     }
                 }
+
+                // Seed FollowUp Persons (Visitors/Seguimiento)
+                if (churchData.followUpPeople) {
+                    this.logger.log(`Creating FollowUp People for ${churchData.name}...`);
+                    for (const fpData of churchData.followUpPeople) {
+                        // Check strict duplicity by email or first+last name if no email
+                        let existing = null;
+                        if (fpData.email) {
+                            existing = await this.followUpRepository.findOne({
+                                where: { email: fpData.email, church: { id: savedChurch.id } }
+                            });
+                        } else {
+                            existing = await this.followUpRepository.findOne({
+                                where: { firstName: fpData.firstName, lastName: fpData.lastName, church: { id: savedChurch.id } }
+                            });
+                        }
+
+                        if (!existing) {
+                            const followUp = this.followUpRepository.create({
+                                firstName: fpData.firstName,
+                                lastName: fpData.lastName,
+                                email: fpData.email,
+                                phone: fpData.phone,
+                                status: fpData.status as FollowUpStatus || FollowUpStatus.VISITOR,
+                                church: savedChurch,
+                                firstVisitDate: faker.date.past()
+                            });
+                            await queryRunner.manager.save(followUp);
+                        }
+                    }
+                }
+
+                // Seed PersonInvited (Just global history, but unrelated to specific church in entity definition... 
+                // Wait, PersonInvited schema does NOT have Church relation in the entity provided above.
+                // Checking PersonInvited entity definition confirms NO church column.
+                // Assuming global or implicitly handled? For now just seeding them raw if they don't exist.)
+                if (churchData.invitedPeople) {
+                    this.logger.log(`Creating Invited People History...`);
+                    for (const ipData of churchData.invitedPeople) {
+                        let existing = null;
+                        if (ipData.email) {
+                            existing = await this.invitedRepository.findOne({ where: { email: ipData.email } });
+                        }
+
+                        if (!existing) {
+                            const invited = this.invitedRepository.create({
+                                firstName: ipData.firstName,
+                                lastName: ipData.lastName,
+                                email: ipData.email,
+                                phone: ipData.phone
+                            });
+                            await queryRunner.manager.save(invited);
+                        }
+                    }
+                }
+
+                // Seed Families
 
                 // Seed Families
                 if (churchData.families) {

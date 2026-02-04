@@ -123,6 +123,7 @@
                     "meetingDay": "Miércoles",
                     "meetingTime": "20:00",
                     "address": "Av. Corrientes 1234, 5to A",
+                    "openEnrollment": true,
                     "leaderEmail": "leader1@phyessoft.com",
                     "membersEmails": [
                         "member1@phyessoft.com",
@@ -139,6 +140,7 @@
                     "meetingDay": "Jueves",
                     "meetingTime": "19:30",
                     "address": "Calle 14 nro 582, City Bell",
+                    "openEnrollment": false,
                     "leaderEmail": "leader2@phyessoft.com",
                     "membersEmails": [
                         "member4@phyessoft.com",
@@ -415,7 +417,42 @@
                         "memberEmail": "phyessoft@gmail.com"
                     }
                 ]
-            }
+            },
+            "followUpPeople": [
+                {
+                    "firstName": "Carlos",
+                    "lastName": "Seguimiento",
+                    "email": "carlos.visitor@test.com",
+                    "phone": "+5491100001111",
+                    "status": "VISITOR"
+                },
+                {
+                    "firstName": "Ana",
+                    "lastName": "Visitante",
+                    "email": "ana.visitor@test.com",
+                    "phone": "+5491100002222",
+                    "status": "VISITOR"
+                },
+                {
+                    "firstName": "Pedro",
+                    "lastName": "Nuevo",
+                    "email": "pedro.visitor@test.com",
+                    "status": "PROSPECT"
+                }
+            ],
+            "invitedPeople": [
+                {
+                    "firstName": "Invitado",
+                    "lastName": "Histórico",
+                    "email": "invitado.historico@test.com",
+                    "phone": "+5491199998888"
+                },
+                {
+                    "firstName": "Maria",
+                    "lastName": "Invitada",
+                    "email": "maria.invitada@test.com"
+                }
+            ]
         }
     ]
 }

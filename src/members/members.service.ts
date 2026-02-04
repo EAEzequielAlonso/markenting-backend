@@ -310,4 +310,49 @@ export class MembersService {
 
         return savedMember;
     }
+
+    async createFromVisitor(visitor: any, churchId: string) {
+        // 1. Check if Person exists by email (if available)
+        let person: Person | null = null;
+        if (visitor.email) {
+            person = await this.personRepository.findOne({ where: { email: visitor.email } });
+        }
+
+        // 2. Create Person if not exists
+        if (!person) {
+            person = this.personRepository.create({
+                firstName: visitor.firstName,
+                lastName: visitor.lastName,
+                fullName: `${visitor.firstName} ${visitor.lastName}`.trim(),
+                email: visitor.email || null,
+                phoneNumber: visitor.phone || null,
+            });
+            person = await this.personRepository.save(person);
+        }
+
+        // 3. Check if already member
+        const existingMember = await this.memberRepository.findOne({
+            where: {
+                person: { id: person.id },
+                church: { id: churchId }
+            }
+        });
+
+        if (existingMember) {
+            return existingMember; // Almost idempotent, return existing
+        }
+
+        // 4. Create Member
+        const member = this.memberRepository.create({
+            person,
+            church: { id: churchId },
+            ecclesiasticalRole: EcclesiasticalRole.NONE,
+            // Default roles for new member
+            functionalRoles: [FunctionalRole.MEMBER],
+            status: MembershipStatus.MEMBER,
+            joinedAt: new Date()
+        });
+
+        return this.memberRepository.save(member);
+    }
 }

@@ -130,4 +130,12 @@ export class AddGuestDto {
     @IsOptional()
     @IsString()
     notes?: string;
+
+    @IsOptional()
+    @IsUUID()
+    followUpPersonId?: string;
+
+    @IsOptional()
+    @IsUUID()
+    personInvitedId?: string;
 }
